@@ -1,0 +1,45 @@
+import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletReadyState } from "@solana/wallet-adapter-base";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Button } from "@/components/ui/button";
+import { useMemo } from "react";
+
+export function WalletPicker() {
+  const { wallets, select } = useWallet();
+  const solanaWallets = useMemo(() => {
+    return wallets
+      .filter(
+        (wallet) =>
+          wallet.readyState === WalletReadyState.Installed &&
+          wallet.adapter.name !== "Brave Wallet",
+      )
+      .map((x) => x.adapter);
+  }, [wallets]);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button type="button">Connect wallet</Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80">
+        <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-4">
+            {solanaWallets.map((item, i) => (
+              <div
+                key={i}
+                role="button"
+                className={
+                  "flex justify-between items-center bg-[#F6F8FB] border-2 border-[#F6F8FB] rounded-full py-4 px-5"
+                }
+                onClick={() => select(item.name)}
+              >
+                <p className={"text-dark/50 text-base"}>{item.name}</p>
+                <img src={item.icon} width={40} height={40} alt={item.name} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
