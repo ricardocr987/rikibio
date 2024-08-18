@@ -39,3 +39,57 @@ export async function getPage(slug: string) {
     return '';
   }
 }
+
+export type Article = {
+  slug: {
+    id: string;
+    type: "rich_text";
+    rich_text: {
+      type: "text";
+      text: {
+        content: string;
+        link: string | null;
+      };
+      annotations: {
+        bold: boolean;
+        italic: boolean;
+        strikethrough: boolean;
+        underline: boolean;
+        code: boolean;
+        color: string;
+      };
+      plain_text: string;
+      href: string | null;
+    }[];
+  };
+  tags: {
+    id: string;
+    type: "multi_select";
+    multi_select: {
+      id: string;
+      name: string;
+      color: string;
+    }[];
+  };
+  title: {
+    id: "title";
+    type: "title";
+    title: {
+      type: "text";
+      text: {
+        content: string;
+        link: string | null;
+      };
+      annotations: {
+        bold: boolean;
+        italic: boolean;
+        strikethrough: boolean;
+        underline: boolean;
+        code: boolean;
+        color: string;
+      };
+      plain_text: string;
+      href: string | null;
+    }[];
+  };
+};
