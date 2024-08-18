@@ -4,17 +4,19 @@ import { FaGithub, FaTelegram, FaTwitter } from "react-icons/fa";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { ArticleSection } from "@/components/ArticleSection";
+import { Article, getArticles } from "@/lib/notion";
 
 export type Meetings = {
   [date: string]: string[];
 };
 
-export type MeetingsData = {
+type InitialData = {
   meetings: Meetings;
   firstDate: string;
+  articles: Article[];
 };
 
-async function fetchInitialData(): Promise<MeetingsData> {
+async function getInitialData(): Promise<InitialData> {
   const today = new Date();
   const currentTimestamp = today.getTime();
   const snapshot = await db
@@ -43,12 +45,13 @@ async function fetchInitialData(): Promise<MeetingsData> {
   }
 
   const firstDate = today.toISOString();
+  const articles = await getArticles();
 
-  return { meetings, firstDate };
+  return { meetings, firstDate, articles };
 }
 
 export default async function Home() {
-  const { meetings, firstDate } = await fetchInitialData();
+  const { meetings, firstDate, articles } = await getInitialData();
 
   return (
     <main className="flex flex-col items-center mt-32">
@@ -99,7 +102,7 @@ export default async function Home() {
           </div>
         </div>
       </section>
-      <ArticleSection />
+      <ArticleSection articles={articles} />
       <ContactSection firstDate={firstDate} meetings={meetings} />
     </main>
   );

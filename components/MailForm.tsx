@@ -27,7 +27,7 @@ const formSchema = z.object({
 
 type FormSchema = z.infer<typeof formSchema>;
 
-export function MailContact() {
+export function MailForm() {
   const { toast } = useToast();
 
   const form = useForm<FormSchema>({

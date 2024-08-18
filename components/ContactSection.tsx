@@ -2,7 +2,7 @@
 
 import { Meetings } from "@/app/page";
 import { MeetingForm } from "./MeetingForm";
-import { MailContact } from "./MailContact";
+import { MailForm } from "./MailForm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type ContactSectionProps = {
@@ -22,7 +22,7 @@ export function ContactSection({ firstDate, meetings }: ContactSectionProps) {
           <MeetingForm firstDate={firstDate} meetings={meetings} />
         </TabsContent>
         <TabsContent value="email">
-          <MailContact />
+          <MailForm />
         </TabsContent>
       </Tabs>
     </div>

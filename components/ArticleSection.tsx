@@ -1,37 +1,39 @@
-import * as React from "react";
+"use client";
 
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
+import { Article } from "@/lib/notion";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-export function ArticleSection() {
+type ArticleProps = {
+  articles: Article[];
+};
+
+export function ArticleSection({ articles }: ArticleProps) {
+  const router = useRouter();
+
+  const handleRedirect = (slug: string) => {
+    router.push(`/articles/${slug}`);
+  };
+
   return (
-    <Carousel
-      opts={{
-        align: "start",
-      }}
-      className="w-full max-w-sm mb-16"
-    >
-      <CarouselContent>
-        {Array.from({ length: 5 }).map((_, index) => (
-          <CarouselItem key={index} className="md:basis-1/2">
-            <div className="p-1">
-              <Card>
-                <CardContent className="flex aspect-square items-center justify-center p-6">
-                  <span className="text-3xl font-semibold">{index + 1}</span>
-                </CardContent>
-              </Card>
-            </div>
-          </CarouselItem>
+    <section className="mb-16">
+      <h1 className="text-xl font-bold mb-2">My blog posts</h1>
+      <ul className="list-disc pl-5 space-y-2">
+        {articles.map((article) => (
+          <li key={article.slug.id}>
+            <Link
+              href={`/articles/${article.slug.rich_text[0].plain_text}`}
+              onClick={(e) => {
+                e.preventDefault();
+                handleRedirect(article.slug.rich_text[0].plain_text);
+              }}
+              className="text-blue-500 hover:underline"
+            >
+              {article.title.title[0].plain_text}
+            </Link>
+          </li>
         ))}
-      </CarouselContent>
-      <CarouselPrevious />
-      <CarouselNext />
-    </Carousel>
+      </ul>
+    </section>
   );
 }

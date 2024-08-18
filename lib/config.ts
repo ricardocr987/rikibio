@@ -34,6 +34,13 @@ const googleConfig = {
   },
 };
 
+const notionConfig = {
+  NOTION_SECRET: process.env.NOTION_SECRET || "",
+  NOTION_DB: process.env.NOTION_DB || "",
+  NOTION_USER: process.env.NOTION_USER || "",
+  NOTION_TOKEN: process.env.NOTION_TOKEN || ''
+};
+
 const config = {
   RESEND_API_KEY: process.env.RESEND_API_KEY || "",
   SOL_RPC: new Connection(
@@ -47,6 +54,7 @@ const config = {
   APP_URL: isProduction ? process.env.APP_URL : "http://127.0.0.1:3000",
   ...stripeConfig,
   ...googleConfig,
+  ...notionConfig,
 };
 
 export default config;
