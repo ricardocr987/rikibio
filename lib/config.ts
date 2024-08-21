@@ -38,7 +38,7 @@ const notionConfig = {
   NOTION_SECRET: process.env.NOTION_SECRET || "",
   NOTION_DB: process.env.NOTION_DB || "",
   NOTION_USER: process.env.NOTION_USER || "",
-  NOTION_TOKEN: process.env.NOTION_TOKEN || ''
+  NOTION_TOKEN: process.env.NOTION_TOKEN || "",
 };
 
 const config = {
