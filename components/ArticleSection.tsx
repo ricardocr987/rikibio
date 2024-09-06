@@ -16,19 +16,19 @@ export function ArticleSection({ articles }: ArticleProps) {
   };
 
   return (
-    <section className="mb-10">
-      <h1 className="text-xl font-bold mb-2 text-white">Sharing my progress</h1>
+    <section className="mb-8">
+      <h1 className="text-xl font-bold mb-2 text-gray-200 text-center">Blocks of code</h1>
       <ul className="list-none space-y-2">
         {articles.map((article) => (
           <li key={article.slug.id} className="flex items-center">
-            <span className="text-blue-700 mr-2">•</span>
+            <span className="text-blue-600 mr-2">•</span>
             <Link
               href={`/articles/${article.slug.rich_text[0].plain_text}`}
               onClick={(e) => {
                 e.preventDefault();
                 handleRedirect(article.slug.rich_text[0].plain_text);
               }}
-              className="text-blue-300 hover:underline"
+              className="text-blue-400 hover:underline"
             >
               {article.title.title[0].plain_text}
             </Link>

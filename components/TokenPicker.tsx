@@ -92,7 +92,7 @@ export function TokenPicker({
               onClick={handlePayment}
               className="flex-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
-              Pay {Number(selectedToken.value) * (quantity === 0 ? 1 : quantity)}{" "}
+              Pay {(Math.trunc((Number(selectedToken.value) * (quantity === 0 ? 1 : quantity)) * 100) / 100).toFixed(2)}{" "}
               {selectedToken.metadata.symbol}
             </Button>
             <Button

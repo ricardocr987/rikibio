@@ -54,13 +54,13 @@ export default async function Home() {
   const { meetings, firstDate, articles } = await getInitialData();
 
   return (
-    <main className="flex flex-col items-center mt-32">
-      <section className="mb-16 text-center">
+    <main className="flex flex-col items-center mt-16 md:mt-24 mb-8">
+      <section className="mb-4 text-center">
         <div className="flex flex-col items-center">
           <img
             src="/pfpHacker.png"
             alt="Ricardo builder mode"
-            className="h-52 w-52 rounded-lg object-cover mb-4"
+            className="h-48 w-48 rounded-lg object-cover mb-4"
           />
           <div className="flex space-x-4">
             <Button
