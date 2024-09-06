@@ -221,12 +221,16 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
                       type="multiple"
                       value={field.value}
                       onValueChange={(value) => field.onChange(value)}
+                      className="flex flex-wrap gap-8"
                     >
                       {filteredHours.map((hour) => (
                         <ToggleGroupItem
-                          className="border"
                           key={hour}
                           value={hour}
+                          data-state={field.value.includes(hour) ? "on" : "off"}
+                          className="px-3 py-2 rounded-md transition-colors duration-200
+                                    border-black data-[state=on]:bg-indigo-600 data-[state=on]:text-white
+                                    data-[state=off]:bg-white data-[state=off]:text-black"
                         >
                           {hour}
                         </ToggleGroupItem>
@@ -275,11 +279,12 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
                     <Button
                       type="button"
                       onClick={form.handleSubmit(() => openStripe(true))}
+                      className="flex-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
                       Pay with Stripe
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="my-4  py-12 xl:max-w-screen-xl ">
+                  <DialogContent className="my-4 py-12 xl:max-w-screen-xl ">
                     <EmbeddedCheckoutProvider
                       stripe={config.striperPromise}
                       options={options}

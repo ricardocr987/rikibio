@@ -53,6 +53,9 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        notionGray: {
+          DEFAULT: "rgba(48, 52, 55, 1)",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

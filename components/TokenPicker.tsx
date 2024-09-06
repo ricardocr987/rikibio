@@ -45,7 +45,7 @@ export function TokenPicker({
   }
 
   return (
-    <div className="flex flex-col w-full space-y-4">
+    <div className="flex flex-col w-full">
       {selectedToken && (
         <>
           <div className="flex items-center space-x-2 w-full">
@@ -56,13 +56,12 @@ export function TokenPicker({
                 )
               }
             >
-              <SelectTrigger className="flex-1 flex items-center justify-between rounded-md border px-4 py-2">
-                <span className="px-2">{selectedToken.metadata.symbol}</span>
+              <SelectTrigger className="flex-1 flex items-center justify-between rounded-md border border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                <span>{selectedToken.metadata.symbol}</span>
                 <img
                   src={selectedToken.metadata.image}
                   alt={selectedToken.metadata.symbol}
-                  width={28}
-                  height={28}
+                  className="w-7 h-7"
                 />
               </SelectTrigger>
               <SelectContent>
@@ -88,12 +87,19 @@ export function TokenPicker({
                 ))}
               </SelectContent>
             </Select>
-            <Button type="button" onClick={handlePayment} className="flex-1">
-              Pay{" "}
-              {Number(selectedToken.value) * (quantity === 0 ? 1 : quantity)}{" "}
+            <Button
+              type="button"
+              onClick={handlePayment}
+              className="flex-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Pay {Number(selectedToken.value) * (quantity === 0 ? 1 : quantity)}{" "}
               {selectedToken.metadata.symbol}
             </Button>
-            <Button type="button" onClick={disconnect} className="p-2">
+            <Button
+              type="button"
+              onClick={disconnect}
+              className="p-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            >
               <LogOutIcon className="h-5 w-5" />
             </Button>
           </div>

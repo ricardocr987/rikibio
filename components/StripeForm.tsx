@@ -23,7 +23,6 @@ export default function ProButton() {
   );
 
   const fetchClientSecret = useCallback(async () => {
-    // Create a Checkout Session
     return fetch("/api/payment", {
       method: "POST",
       headers: {

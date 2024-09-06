@@ -39,7 +39,25 @@ export async function getPage(slug: string) {
       })
       .then(async (response: any) => {
         const page = response.results[0];
-        return page ? await notionApi.getPage(page.id) : null;
+        const recordMap = page ? await notionApi.getPage(page.id) : null;
+
+        if (recordMap) {
+          // Remove the `active` property
+          if (recordMap.collection) {
+            const collectionKey = Object.keys(recordMap.collection)[0];
+            const collection = recordMap.collection[collectionKey];
+            if (collection && collection.value && collection.value.schema) {
+              delete collection.value.schema.__fb;
+            }
+          }
+
+          // Remove blog db name
+          if (recordMap.block && recordMap.block['aa69e037-69eb-40c2-993d-cc231e259bed']) {
+            delete recordMap.block['aa69e037-69eb-40c2-993d-cc231e259bed'];
+          }
+        }
+
+        return recordMap;
       });
   } catch (error) {
     console.error("Error fetching page content:", error);

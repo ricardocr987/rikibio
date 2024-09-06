@@ -56,49 +56,40 @@ export default async function Home() {
   return (
     <main className="flex flex-col items-center mt-32">
       <section className="mb-16 text-center">
-        <div className="flex flex-col md:flex-row items-center justify-center mt-8">
-          <div className="md:mr-8">
-            <h1 className="mt-2 mb-2 px-4 text-lg md:text-xl font-bold">
-              Solana enjoyor
-            </h1>
-            <div className="flex justify-center mt-4 space-x-4">
-              <Button
-                asChild
-                variant="ghost"
-                className="bg-blue-500 text-white hover:bg-blue-600"
-              >
-                <Link href="https://t.me/ricardocr987" target="_blank">
-                  <FaTelegram />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="ghost"
-                className="bg-black text-white hover:bg-black/80"
-              >
-                <Link href="https://github.com/ricardocr987" target="_blank">
-                  <FaGithub />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="ghost"
-                className="bg-blue-500 text-white hover:bg-blue-600"
-              >
-                <Link href="https://twitter.com/ricardocr987" target="_blank">
-                  <FaTwitter />
-                </Link>
-              </Button>
-            </div>
-          </div>
-          <div className="flex items-center justify-center order-first md:order-last">
-            <img
-              src="/pfpHacker.png"
-              alt="Ricardo builder mode"
-              width="192"
-              height="192"
-              className="h-52 w-52 rounded-lg object-cover"
-            />
+        <div className="flex flex-col items-center">
+          <img
+            src="/pfpHacker.png"
+            alt="Ricardo builder mode"
+            className="h-52 w-52 rounded-lg object-cover mb-4"
+          />
+          <div className="flex space-x-4">
+            <Button
+              asChild
+              variant="ghost"
+              className="bg-blue-500 text-white hover:bg-blue-600"
+            >
+              <Link href="https://t.me/ricardocr987" target="_blank">
+                <FaTelegram />
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="ghost"
+              className="bg-black text-white hover:bg-black/80"
+            >
+              <Link href="https://github.com/ricardocr987" target="_blank">
+                <FaGithub />
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="ghost"
+              className="bg-blue-500 text-white hover:bg-blue-600"
+            >
+              <Link href="https://twitter.com/ricardocr987" target="_blank">
+                <FaTwitter />
+              </Link>
+            </Button>
           </div>
         </div>
       </section>

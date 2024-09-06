@@ -10,13 +10,13 @@ export default async function Page(context: any) {
   if (!recordMap) return <>ups</>;
 
   return (
-    <>
+    <div className="">
       <NotionPage recordMap={recordMap} />
-      <div className="flex justify-center my-6">
+      <div className="flex justify-center pb-10">
         <Link href="/">
           <Button>Home</Button>
         </Link>
       </div>
-    </>
+    </div>
   );
 }
