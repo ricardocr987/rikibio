@@ -36,6 +36,7 @@ export function NotionPage({ recordMap }: NotionPageProps) {
 
   return (
     <NotionRenderer
+      className="w-full h-full"
       recordMap={recordMap}
       darkMode={true}
       fullPage={true}
