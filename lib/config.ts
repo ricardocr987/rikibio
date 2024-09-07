@@ -14,7 +14,7 @@ const STRIPE_PUBLIC_KEY = isProduction
 const stripeConfig = {
   PRICE_ID: process.env.PRICE_ID || "",
   stripe: new Stripe(STRIPE_SECRET_KEY),
-  striperPromise: loadStripe(STRIPE_PUBLIC_KEY),
+  stripePromise: loadStripe(STRIPE_PUBLIC_KEY),
 };
 
 const googleConfig = {

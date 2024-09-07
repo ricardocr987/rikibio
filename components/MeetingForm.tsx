@@ -36,6 +36,7 @@ import { useCallback, useState } from "react";
 import config from "@/lib/config";
 import { confirmSession, createSession } from "@/actions/stripe";
 import { sendTransaction, createTransaction } from "@/actions/solana";
+import { ScrollArea } from "./ui/scroll-area";
 
 export const MeetingSchema = z.object({
   senderEmail: z.string().email("Invalid email address."),
@@ -284,13 +285,15 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
                       Pay with Stripe
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="my-4 py-12 xl:max-w-screen-xl ">
-                    <EmbeddedCheckoutProvider
-                      stripe={config.striperPromise}
+                  <DialogContent className="max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)] p-0 overflow-hidden">
+                    <ScrollArea className="h-full max-h-[calc(100vh-4rem)] scroll-smooth">
+                      <EmbeddedCheckoutProvider
+                        stripe={config.stripePromise}
                       options={options}
-                    >
-                      <EmbeddedCheckout className="max-h-[80dvh]" />
-                    </EmbeddedCheckoutProvider>
+                      >
+                        <EmbeddedCheckout className="h-[600px]" />                        
+                      </EmbeddedCheckoutProvider>
+                    </ScrollArea>
                   </DialogContent>
                 </Dialog>
               </>

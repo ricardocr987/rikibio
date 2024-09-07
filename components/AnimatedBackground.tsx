@@ -15,8 +15,8 @@ export default function AnimatedBackground() {
         const size = Math.random() * 30 + 20;
         cell.style.width = `${size}px`;
         cell.style.height = `${size}px`;
-        cell.style.left = `${Math.random() * 100}%`;
-        cell.style.top = `${Math.random() * 100}%`;
+        cell.style.left = `${Math.random() * 100}vw`;
+        cell.style.top = `${Math.random() * 100}vh`;
         cell.style.animationDuration = `${Math.random() * 3 + 2}s`;
         cell.style.animationDelay = `${Math.random() * 2}s`;
         const colorIndex = i % 2;
@@ -25,11 +25,11 @@ export default function AnimatedBackground() {
 
         setTimeout(() => {
           cell.style.opacity = '0.5';
-        }, 50 * i);
+        }, Math.random() * 3000);
       }
     };
 
-    createCells(88);
+    createCells(40);
   }, []);
 
   return (

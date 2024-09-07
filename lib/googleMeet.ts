@@ -79,7 +79,7 @@ export async function generateMeet(data: string): Promise<void> {
     if (!meet.hangoutLink || !meet.htmlLink)
       throw new Error("Failed to generate Meet Link");
 
-    await notifyMeet(participants, meetingTime, meet);
+    await notifyMeet(participants, meetingTime, meet, formData.message);
   } catch (error: any) {
     console.error("Error creating Google Calendar event:", error);
   }
@@ -100,11 +100,13 @@ async function notifyMeet(
   participants: string[],
   meetingTime: MeetingTime,
   meet: any,
+  note: string | undefined,
 ): Promise<void> {
   const message = createMailMessage(
     meetingTime,
     meet.hangoutLink,
     meet.htmlLink,
+    note
   );
 
   for (const to of participants) {
@@ -121,6 +123,7 @@ function createMailMessage(
   meetingTime: MeetingTime,
   meetLink: string,
   htmlLink: string,
+  note: string | undefined,
 ): string {
   const formattedStartTime = new Date(meetingTime.start).toLocaleString();
   const formattedEndTime = new Date(meetingTime.end).toLocaleString();
@@ -131,8 +134,8 @@ function createMailMessage(
         <strong>Meeting Link:</strong> <a href="${meetLink}">${meetLink}</a><br>
         <strong>Google Calendar Event Link:</strong> <a href="${htmlLink}">${htmlLink}</a><br><br>`;
   const messageOutro = `Accept the calendar event or click the link above at the scheduled time to join the meeting.`;
-
-  return `<p style="font-size: 16px; line-height: 1.5;">${messageIntro}${meetingDetails}${messageOutro}</p>`;
+  const messageNote = note ? `<br><br><strong>Note:</strong> ${note}` : "";
+  return `<p style="font-size: 16px; line-height: 1.5;">${messageIntro}${meetingDetails}${messageOutro}${messageNote}</p>`;
 }
 
 export function formatDateProps(
