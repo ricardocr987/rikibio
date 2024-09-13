@@ -1,9 +1,9 @@
 "use client";
 
-import { Meetings } from "@/app/page";
 import { MeetingForm } from "./MeetingForm";
 import { MailForm } from "./MailForm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Meetings } from "@/lib/initialData";
 
 type ContactSectionProps = {
   firstDate: string;

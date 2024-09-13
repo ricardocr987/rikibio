@@ -20,7 +20,6 @@ import { Textarea } from "./ui/textarea";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { Meetings } from "@/app/page";
 import { useTokenContext } from "@/contexts/TokenProvider";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { VersionedTransaction } from "@solana/web3.js";
@@ -37,6 +36,7 @@ import config from "@/lib/config";
 import { confirmSession, createSession } from "@/actions/stripe";
 import { sendTransaction, createTransaction } from "@/actions/solana";
 import { ScrollArea } from "./ui/scroll-area";
+import { Meetings } from "@/lib/initialData";
 
 export const MeetingSchema = z.object({
   senderEmail: z.string().email("Invalid email address."),
