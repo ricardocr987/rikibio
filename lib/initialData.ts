@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/firebase";
 import { Article, getArticles } from "@/lib/notion";
+import admin from "firebase-admin";
 
 type InitialData = {
     meetings: Meetings;
@@ -14,8 +15,9 @@ export type Meetings = {
 };
   
 export async function getInitialData(): Promise<InitialData> {
-    const today = new Date();
+    const today = admin.firestore.Timestamp.now().toDate();
     const currentTimestamp = today.getTime();
+
     const snapshot = await db
       .collection("meeting")
       .where("dob", ">=", currentTimestamp)
