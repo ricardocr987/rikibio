@@ -36,7 +36,7 @@ import config from "@/lib/config";
 import { confirmSession, createSession } from "@/actions/stripe";
 import { sendTransaction, createTransaction } from "@/actions/solana";
 import { ScrollArea } from "./ui/scroll-area";
-import { Meetings } from "@/lib/initialData";
+import { Meetings } from "@/app/page";
 
 export const MeetingSchema = z.object({
   senderEmail: z.string().email("Invalid email address."),

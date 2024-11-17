@@ -44,6 +44,7 @@ export const TokenProvider: React.FC<{ children: ReactNode }> = ({
             searchParams: {
               userKey: publicKey.toString(),
             },
+            cache: 'no-store',
           })
           .json<FetchTokensResponse>();
 

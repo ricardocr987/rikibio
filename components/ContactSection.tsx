@@ -3,7 +3,7 @@
 import { MeetingForm } from "./MeetingForm";
 import { MailForm } from "./MailForm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Meetings } from "@/lib/initialData";
+import { Meetings } from "@/app/page";
 
 type ContactSectionProps = {
   firstDate: string;
