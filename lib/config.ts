@@ -2,7 +2,7 @@ import { Connection } from "@solana/web3.js";
 import { loadStripe } from "@stripe/stripe-js";
 import { Stripe } from "stripe";
 
-const isProduction = process.env.NEXT_PUBLIC_ENVIRONMENT === "prod";
+const isProduction = process.env.NEXT_PUBLIC_ENVIRONMENT == "prod";
 
 const STRIPE_SECRET_KEY = isProduction
   ? process.env.STRIPE_LIVE_SECRET_KEY || ""
@@ -50,7 +50,7 @@ const config = {
       wsEndpoint: `wss://${process.env.SOL_RPC}`,
     },
   ),
-  ENVIRONMENT: process.env.ENVIRONMENT || "dev",
+  ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT || "dev",
   APP_URL: isProduction ? "https://www.riki.bio" : "http://127.0.0.1:3000",
   ...stripeConfig,
   ...googleConfig,
