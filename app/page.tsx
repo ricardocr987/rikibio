@@ -3,7 +3,29 @@ import { Button } from "@/components/ui/button";
 import { FaGithub, FaTelegram, FaTwitter } from "react-icons/fa";
 import Link from "next/link";
 import { ArticleSection } from "@/components/ArticleSection";
-import { getInitialData } from "@/lib/initialData";
+import { Article, getArticles } from "@/lib/notion";
+import ky from "ky";
+import config from "@/lib/config";
+
+export type Meetings = {
+  [date: string]: string[];
+};
+
+type InitialData = {
+  meetings: Meetings;
+  firstDate: string;
+  articles: Article[];
+};
+
+async function getInitialData(): Promise<InitialData> {
+  const { meetings, firstDate } = await ky.get(`${config.APP_URL}/api/initialData`, {
+    cache: 'no-store',
+  }).json<InitialData>();
+  
+  const articles = await getArticles();
+
+  return { meetings, firstDate, articles };
+}
 
 export default async function Home() {
   const { meetings, firstDate, articles } = await getInitialData();

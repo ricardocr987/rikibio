@@ -51,7 +51,7 @@ const config = {
     },
   ),
   ENVIRONMENT: process.env.ENVIRONMENT || "dev",
-  APP_URL: isProduction ? process.env.APP_URL : "http://127.0.0.1:3000",
+  APP_URL: isProduction ? "https://www.riki.bio" : "http://127.0.0.1:3000",
   ...stripeConfig,
   ...googleConfig,
   ...notionConfig,

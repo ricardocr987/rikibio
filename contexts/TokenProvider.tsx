@@ -10,6 +10,7 @@ import React, {
 import ky from "ky";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { TokenInfo } from "@/actions/types";
+import config from "@/lib/config";
 
 interface FetchTokensResponse {
   tokens: TokenInfo[];
@@ -39,7 +40,7 @@ export const TokenProvider: React.FC<{ children: ReactNode }> = ({
       setLoadingTokens(true);
       try {
         const response = await ky
-          .get("/api/tokens", {
+          .get(`${config.APP_URL}/api/tokens`, {
             searchParams: {
               userKey: publicKey.toString(),
             },
