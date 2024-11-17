@@ -1,7 +1,8 @@
 import { db } from "@/lib/firebase";
 import { NextResponse } from "next/server";
+import { getArticles } from "@/lib/notion";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     // Get current date and timestamp
     const today = new Date();
@@ -36,14 +37,18 @@ export async function GET() {
       today.setDate(today.getDate() + 1);
     }
 
+    // Fetch articles
+    const articles = await getArticles();
+
     return NextResponse.json({
       meetings,
       firstDate: today.toISOString(),
+      articles,
     });
   } catch (error) {
-    console.error('Error fetching meetings:', error);
+    console.error('Error fetching initial data:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch meetings' },
+      { error: 'Failed to fetch initial data' },
       { status: 500 }
     );
   }

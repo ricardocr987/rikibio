@@ -2,7 +2,7 @@ import { Connection } from "@solana/web3.js";
 import { loadStripe } from "@stripe/stripe-js";
 import { Stripe } from "stripe";
 
-const isProduction = process.env.ENVIRONMENT === "prod";
+const isProduction = process.env.NEXT_PUBLIC_ENVIRONMENT === "prod";
 
 const STRIPE_SECRET_KEY = isProduction
   ? process.env.STRIPE_LIVE_SECRET_KEY || ""
