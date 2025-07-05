@@ -7,6 +7,7 @@ export type TokenInfo = {
   value: string;
   decimals: number;
   metadata: Metadata;
+  unitAmount?: string;
 };
 
 export type Metadata = {
@@ -16,16 +17,26 @@ export type Metadata = {
 };
 
 export type TokenPrice = {
-  id: string;
-  mintSymbol: string;
-  vsToken: string;
-  vsTokenSymbol: string;
-  price: number;
+  usdPrice: number;
+  blockId: number;
+  decimals: number;
+  priceChange24h: number;
 };
 
 export type JupQuote = {
+  [mint: string]: TokenPrice;
+};
+
+// Legacy type for backward compatibility with old price API
+export type JupQuoteLegacy = {
   data: {
-    [key: string]: TokenPrice;
+    [key: string]: {
+      id: string;
+      mintSymbol: string;
+      vsToken: string;
+      vsTokenSymbol: string;
+      price: number;
+    };
   };
   timeTaken: number;
 };
@@ -39,13 +50,93 @@ export type Payment = {
 };
 
 export type JupTokenInfo = {
-  address: string;
+  id: string;
   name: string;
   symbol: string;
+  icon: string;
   decimals: number;
-  logoURI: string;
+  circSupply: number;
+  totalSupply: number;
+  tokenProgram: string;
+  firstPool: {
+    id: string;
+    createdAt: string;
+  };
+  holderCount: number;
+  audit: {
+    mintAuthorityDisabled: boolean;
+    freezeAuthorityDisabled: boolean;
+    topHoldersPercentage: number;
+  };
+  organicScore: number;
+  organicScoreLabel: string;
+  isVerified: boolean;
+  cexes: string[];
   tags: string[];
-  daily_volume: number;
+  fdv: number;
+  mcap: number;
+  usdPrice: number;
+  priceBlockId: number;
+  liquidity: number;
+  stats5m: {
+    priceChange: number;
+    liquidityChange: number;
+    volumeChange: number;
+    buyVolume: number;
+    sellVolume: number;
+    buyOrganicVolume: number;
+    sellOrganicVolume: number;
+    numBuys: number;
+    numSells: number;
+    numTraders: number;
+    numOrganicBuyers: number;
+    numNetBuyers: number;
+  };
+  stats1h: {
+    priceChange: number;
+    liquidityChange: number;
+    volumeChange: number;
+    buyVolume: number;
+    sellVolume: number;
+    buyOrganicVolume: number;
+    sellOrganicVolume: number;
+    numBuys: number;
+    numSells: number;
+    numTraders: number;
+    numOrganicBuyers: number;
+    numNetBuyers: number;
+  };
+  stats6h: {
+    priceChange: number;
+    liquidityChange: number;
+    volumeChange: number;
+    buyVolume: number;
+    sellVolume: number;
+    buyOrganicVolume: number;
+    sellOrganicVolume: number;
+    numBuys: number;
+    numSells: number;
+    numTraders: number;
+    numOrganicBuyers: number;
+    numNetBuyers: number;
+  };
+  stats24h: {
+    priceChange: number;
+    liquidityChange: number;
+    volumeChange: number;
+    buyVolume: number;
+    sellVolume: number;
+    buyOrganicVolume: number;
+    sellOrganicVolume: number;
+    numBuys: number;
+    numSells: number;
+    numTraders: number;
+    numOrganicBuyers: number;
+    numNetBuyers: number;
+  };
+  ctLikes: number;
+  smartCtLikes: number;
+  updatedAt: string;
 };
 
 export type JupQuoteResponse = {

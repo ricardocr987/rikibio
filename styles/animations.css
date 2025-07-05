@@ -1,17 +1,18 @@
 .cell {
-    position: absolute;
-    background: rgba(0, 255, 0, 0.1);
-    border: 1px solid rgba(0, 255, 0, 0.2);
-    animation: float 3s ease-in-out infinite;
-    opacity: 0;
-    transition: opacity 0.5s ease-in;
+  position: absolute;
+  background: rgba(0, 255, 0, 0.1);
+  border: 1px solid rgba(0, 255, 0, 0.2);
+  animation: float 3s ease-in-out infinite;
+  opacity: 0;
+  transition: opacity 0.5s ease-in;
 }
 
 @keyframes float {
-    0%, 100% { 
-        transform: translateY(0);
-    }
-    50% { 
-        transform: translateY(-20px);
-    }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
 }

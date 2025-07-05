@@ -52,8 +52,11 @@ export async function getPage(slug: string) {
           }
 
           // Remove blog db name
-          if (recordMap.block && recordMap.block['aa69e037-69eb-40c2-993d-cc231e259bed']) {
-            delete recordMap.block['aa69e037-69eb-40c2-993d-cc231e259bed'];
+          if (
+            recordMap.block &&
+            recordMap.block["aa69e037-69eb-40c2-993d-cc231e259bed"]
+          ) {
+            delete recordMap.block["aa69e037-69eb-40c2-993d-cc231e259bed"];
           }
         }
 

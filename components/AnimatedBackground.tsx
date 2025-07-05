@@ -1,17 +1,17 @@
-'use client'
+"use client";
 
-import { useEffect } from 'react';
-import '@/styles/animations.css';
+import { useEffect } from "react";
+import "@/styles/animations.css";
 
 export default function AnimatedBackground() {
   useEffect(() => {
     const createCells = (count: number) => {
-      const background = document.getElementById('animated-background');
-      const colors = ['#10B981', '#6366F1'];
-      
+      const background = document.getElementById("animated-background");
+      const colors = ["#10B981", "#6366F1"];
+
       for (let i = 0; i < count; i++) {
-        const cell = document.createElement('div');
-        cell.classList.add('cell');
+        const cell = document.createElement("div");
+        cell.classList.add("cell");
         const size = Math.random() * 30 + 20;
         cell.style.width = `${size}px`;
         cell.style.height = `${size}px`;
@@ -24,7 +24,7 @@ export default function AnimatedBackground() {
         background?.appendChild(cell);
 
         setTimeout(() => {
-          cell.style.opacity = '0.5';
+          cell.style.opacity = "0.5";
         }, Math.random() * 3000);
       }
     };

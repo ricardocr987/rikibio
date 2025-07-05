@@ -67,3 +67,97 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* VSCode-like code block styles */
+.vscode-codeblock pre,
+.vscode-codeblock code {
+  font-family: 'Fira Mono', 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', 'Courier New', monospace !important;
+  background: #18181b !important;
+  color: #d4d4d4 !important;
+  border-radius: 0.5rem;
+  border: 1px solid #23232b;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  overflow-x: auto;
+  box-shadow: none;
+}
+.vscode-codeblock pre {
+  margin: 0 !important;
+  min-height: 2.8em;
+  padding: 1rem 1.5rem !important;
+}
+.vscode-codeblock code {
+  background: none !important;
+  padding: 0 !important;
+}
+
+/* Remove prose styles from code blocks */
+.vscode-codeblock.not-prose {
+  all: unset;
+  display: block;
+  position: relative;
+}
+
+/* VSCode-like syntax highlighting */
+.vscode-codeblock .token-keyword {
+  color: #569CD6;
+  font-weight: 500;
+}
+.vscode-codeblock .token-string {
+  color: #CE9178;
+}
+.vscode-codeblock .token-comment {
+  color: #6A9955;
+  font-style: italic;
+}
+.vscode-codeblock .token-number {
+  color: #B5CEA8;
+}
+.vscode-codeblock .token-function {
+  color: #DCDCAA;
+}
+
+/* --- Improved code block styling for articles --- */
+.vscode-codeblock,
+.code-block-wrapper {
+  margin-top: 1.25rem !important;
+  margin-bottom: 1.25rem !important;
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  background: #18181b;
+  position: relative;
+}
+
+.code-block {
+  background: transparent;
+}
+
+.code-block pre {
+  padding: 1rem 1.5rem;
+  line-height: 1.7;
+  font-size: 1rem;
+  background: transparent;
+  color: #d4d4d4;
+  overflow-x: auto;
+  border: none;
+  min-height: 2.8em;
+  padding: 1rem 1.5rem !important;
+}
+
+.code-block code {
+  background: none;
+  color: inherit;
+  font-family: 'Fira Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 1rem;
+}
+
+/* More colorful syntax highlighting */
+.token-keyword { color: #569CD6; }
+.token-string { color: #CE9178; }
+.token-number { color: #B5CEA8; }
+.token-function { color: #DCDCAA; }
+.token-comment { color: #6A9955; font-style: italic; }

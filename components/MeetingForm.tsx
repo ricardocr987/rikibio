@@ -94,6 +94,7 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
   const { publicKey, signTransaction } = useWallet();
   const { tokens, loadingTokens, selectedToken, setSelectedToken } =
     useTokenContext();
+
   async function handleSolanaPayment(data: z.infer<typeof MeetingSchema>) {
     try {
       if (!publicKey || !signTransaction || !selectedToken) {
@@ -112,7 +113,7 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
       if (!transaction) return;
 
       const deserializedTransaction = VersionedTransaction.deserialize(
-        Buffer.from(transaction, "base64"),
+        Buffer.from(transaction, "base64") as Uint8Array,
       );
       const signedTransaction = await signTransaction!(deserializedTransaction);
       const serializedTransaction = Buffer.from(
@@ -143,164 +144,164 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
   }
 
   return (
-    <section className="flex flex-col justify-center h-full w-full">
-      <Form {...form}>
-        <form className="space-y-4 mt-8 flex flex-col text-black w-full">
-          <FormField
-            control={form.control}
-            name="senderEmail"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Your Email</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Your email"
-                    {...field}
-                    className="w-full"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="dob"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Select a date</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground",
-                        )}
-                      >
-                        {field.value ? (
-                          format(field.value, "PPP")
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      defaultMonth={new Date(firstDate)}
-                      fromDate={new Date(firstDate)}
-                      disabled={(date) =>
-                        date < new Date(firstDate) ||
-                        isWeekend(date) ||
-                        date < new Date("1900-01-01")
-                      }
-                      initialFocus
-                      numberOfMonths={1}
-                      showOutsideDays={false}
+    <section className="flex flex-col items-center justify-center h-full w-full">
+      <div className="w-[360px] min-h-[420px] bg-[#23232b] rounded-lg shadow p-6">
+        <Form {...form}>
+          <form className="space-y-4 flex flex-col text-gray-200 w-full">
+            <FormField
+              control={form.control}
+              name="senderEmail"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Your Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Your email"
+                      {...field}
+                      className="w-full bg-[#18181b] text-[#22c55e] placeholder-[#4ade80] border-none focus:ring-2 focus:ring-[#22c55e] focus:outline-none"
                     />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="hours"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Select hours</FormLabel>
-                <FormControl>
-                  {filteredHours.length > 0 ? (
-                    <ToggleGroup
-                      type="multiple"
-                      value={field.value}
-                      onValueChange={(value) => field.onChange(value)}
-                      className="flex flex-wrap gap-8"
-                    >
-                      {filteredHours.map((hour) => (
-                        <ToggleGroupItem
-                          key={hour}
-                          value={hour}
-                          data-state={field.value.includes(hour) ? "on" : "off"}
-                          className="px-3 py-2 rounded-md transition-colors duration-200
-                                    border-black data-[state=on]:bg-indigo-600 data-[state=on]:text-white
-                                    data-[state=off]:bg-white data-[state=off]:text-black"
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="dob"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Select a date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal bg-[#18181b] text-[#22c55e] border-none focus:ring-2 focus:ring-[#22c55e] focus:outline-none",
+                            !field.value && "text-muted-foreground"
+                          )}
                         >
-                          {hour}
-                        </ToggleGroupItem>
-                      ))}
-                    </ToggleGroup>
-                  ) : (
-                    <p>No available hours for the selected date.</p>
-                  )}
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="message"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Your Message</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Your message"
-                    {...field}
-                    className="w-full"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <div className="w-full flex justify-center space-x-2">
-            {publicKey ? (
-              <TokenPicker
-                tokens={tokens}
-                selectedToken={selectedToken}
-                setSelectedToken={setSelectedToken}
-                handlePayment={form.handleSubmit(handleSolanaPayment)}
-                quantity={form.watch("hours").length}
-                loading={loadingTokens}
-              />
-            ) : (
-              <>
-                <WalletPicker />
-                <Dialog open={isStripeOpen} onOpenChange={openStripe}>
-                  <DialogTrigger asChild>
-                    <Button
-                      type="button"
-                      onClick={form.handleSubmit(() => openStripe(true))}
-                      className="flex-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    >
-                      Pay with Stripe
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)] p-0 overflow-hidden">
-                    <ScrollArea className="h-full max-h-[calc(100vh-4rem)] scroll-smooth">
-                      <EmbeddedCheckoutProvider
-                        stripe={config.stripePromise}
-                      options={options}
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        defaultMonth={new Date(firstDate)}
+                        fromDate={new Date(firstDate)}
+                        disabled={(date) =>
+                          date < new Date(firstDate) ||
+                          isWeekend(date) ||
+                          date < new Date("1900-01-01")
+                        }
+                        initialFocus
+                        numberOfMonths={1}
+                        showOutsideDays={false}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="hours"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Select hours</FormLabel>
+                  <FormControl>
+                    {filteredHours.length > 0 ? (
+                      <ToggleGroup
+                        type="multiple"
+                        value={field.value}
+                        onValueChange={(value) => field.onChange(value)}
+                        className="flex w-full max-w-full justify-between gap-4"
                       >
-                        <EmbeddedCheckout className="h-[600px]" />                        
-                      </EmbeddedCheckoutProvider>
-                    </ScrollArea>
-                  </DialogContent>
-                </Dialog>
-              </>
-            )}
-          </div>
-        </form>
-      </Form>
+                        {filteredHours.map((hour) => (
+                          <ToggleGroupItem
+                            key={hour}
+                            value={hour}
+                            data-state={field.value.includes(hour) ? "on" : "off"}
+                            className="flex-1 min-w-0 px-4 py-2 rounded-md shadow transition-colors duration-200 border-none data-[state=on]:bg-[#22c55e] data-[state=on]:text-black data-[state=off]:bg-[#18181b] data-[state=off]:text-[#22c55e] data-[state=off]:hover:bg-[#404040] data-[state=off]:hover:text-[#22c55e] focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
+                          >
+                            {hour}
+                          </ToggleGroupItem>
+                        ))}
+                      </ToggleGroup>
+                    ) : (
+                      <p>No available hours for the selected date.</p>
+                    )}
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="message"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Your Message</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Your message"
+                      {...field}
+                      className="w-full bg-[#18181b] text-[#22c55e] placeholder-[#4ade80] border-none focus:ring-2 focus:ring-[#22c55e] focus:outline-none"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="w-full flex justify-center space-x-2">
+              {publicKey ? (
+                <TokenPicker
+                  tokens={tokens}
+                  selectedToken={selectedToken}
+                  setSelectedToken={setSelectedToken}
+                  handlePayment={form.handleSubmit(handleSolanaPayment)}
+                  quantity={form.watch("hours").length}
+                  loading={loadingTokens}
+                />
+              ) : (
+                <>
+                  <WalletPicker />
+                  <Dialog open={isStripeOpen} onOpenChange={openStripe}>
+                    <DialogTrigger asChild>
+                      <Button
+                        type="button"
+                        onClick={form.handleSubmit(() => openStripe(true))}
+                        className="flex-1 bg-[#22c55e] text-black rounded-md hover:bg-[#16a34a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#22c55e]"
+                      >
+                        Pay with Stripe
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)] p-0 overflow-hidden">
+                      <ScrollArea className="h-full max-h-[calc(100vh-4rem)] scroll-smooth">
+                        <EmbeddedCheckoutProvider
+                          stripe={config.stripePromise}
+                          options={options}
+                        >
+                          <EmbeddedCheckout className="h-[600px]" />
+                        </EmbeddedCheckoutProvider>
+                      </ScrollArea>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
+            </div>
+          </form>
+        </Form>
+      </div>
     </section>
   );
 }

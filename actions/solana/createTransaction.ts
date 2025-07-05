@@ -8,7 +8,7 @@ import {
   USDC_MINT,
   USDC_MINT_KEY,
 } from "@/lib/constants";
-import { getJupInstructions } from "@/lib/jup";
+import { getJupInstructions, getTokenInfo } from "@/lib/jup";
 import { createPayInstruction, getTransaction } from "@/lib/solana";
 import { getAccount, getAssociatedTokenAddress } from "@solana/spl-token";
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
@@ -37,6 +37,7 @@ export async function createTransaction(
     const instructions: TransactionInstruction[] = [];
     const lookupTableAddresses: string[] = [];
     if (currency !== USDC_MINT) {
+      const metadata = await getTokenInfo(currency);
       const { addressLookupTableAddresses, jupInstructions } =
         await getJupInstructions(pubkey, currency, quantityBN);
 

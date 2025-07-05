@@ -5,9 +5,12 @@ import { cn } from "@/lib/utils";
 import { SolanaContextProvider } from "@/contexts/SolanaProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { TokenProvider } from "@/contexts/TokenProvider";
-import dynamic from 'next/dynamic';
+import dynamic from "next/dynamic";
 
-const AnimatedBackground = dynamic(() => import('@/components/AnimatedBackground'), { ssr: false });
+const AnimatedBackground = dynamic(
+  () => import("@/components/AnimatedBackground"),
+  { ssr: false },
+);
 
 export const metadata: Metadata = {
   title: "riki.bio",
@@ -27,10 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={cn(
-          "bg-notionGray font-sans antialiased",
-          fontSans.variable,
-        )}
+        className={cn("bg-notionGray font-sans antialiased", fontSans.variable)}
       >
         <AnimatedBackground />
         <SolanaContextProvider>

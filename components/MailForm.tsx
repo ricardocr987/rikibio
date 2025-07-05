@@ -55,50 +55,55 @@ export function MailForm() {
 
   return (
     <section className="flex flex-col items-center justify-center h-full w-full">
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(handleSubmit)}
-          className="space-y-5 mt-6 flex flex-col text-black w-full"
-        >
-          <FormField
-            control={form.control}
-            name="senderEmail"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Your Email</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Your email"
-                    {...field}
-                    className="w-full"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="message"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Your Message</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Your message"
-                    {...field}
-                    className="w-full h-40"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button type="submit" className="flex-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-            Send Message
-          </Button>
-        </form>
-      </Form>
+      <div className="w-[360px] min-h-[420px] bg-[#23232b] rounded-lg shadow pt-6 pb-4 px-6">
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(handleSubmit)}
+            className="space-y-5 flex flex-col text-gray-200 w-full"
+          >
+            <FormField
+              control={form.control}
+              name="senderEmail"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Your Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Your email"
+                      {...field}
+                      className="w-full bg-[#18181b] text-[#22c55e] placeholder-[#4ade80] border-none focus:ring-2 focus:ring-[#22c55e] focus:outline-none"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="message"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Your Message</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Your message"
+                      {...field}
+                      className="w-full h-40 bg-[#18181b] text-[#22c55e] placeholder-[#4ade80] border-none focus:ring-2 focus:ring-[#22c55e] focus:outline-none"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button
+              type="submit"
+              className="flex-1 bg-[#22c55e] text-black rounded-md hover:bg-[#16a34a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#22c55e]"
+            >
+              Send Message
+            </Button>
+          </form>
+        </Form>
+      </div>
     </section>
   );
 }

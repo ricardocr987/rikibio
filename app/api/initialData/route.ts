@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     snapshot.forEach((doc) => {
       const data = doc.data();
       const day = new Date(data.dob).toISOString();
-      
+
       if (!meetings[day]) {
         meetings[day] = [];
       }
@@ -29,11 +29,13 @@ export async function GET(req: Request) {
     // Calculate next available business day
     today.setHours(0, 0, 0, 0);
     today.setDate(today.getDate() + 1);
-    
+
     // Skip weekends
-    if (today.getDay() === 6) { // Saturday
+    if (today.getDay() === 6) {
+      // Saturday
       today.setDate(today.getDate() + 2);
-    } else if (today.getDay() === 0) { // Sunday
+    } else if (today.getDay() === 0) {
+      // Sunday
       today.setDate(today.getDate() + 1);
     }
 
@@ -46,10 +48,10 @@ export async function GET(req: Request) {
       articles,
     });
   } catch (error) {
-    console.error('Error fetching initial data:', error);
+    console.error("Error fetching initial data:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch initial data' },
-      { status: 500 }
+      { error: "Failed to fetch initial data" },
+      { status: 500 },
     );
   }
 }

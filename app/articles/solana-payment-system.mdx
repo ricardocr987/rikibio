@@ -1,0 +1,691 @@
+---
+title: "Solana Payments with Jupiter"
+description: "Complete implementation of a payment system using Jupiter for token swaps and Solana for transactions, allowing users to pay with any token while receiving USDC"
+date: "2024-01-15"
+tags: ["solana", "jupiter", "web3", "typescript", "payment-system"]
+published: true
+---
+
+# Building a Solana Payment System with Jupiter Integration
+
+This comprehensive guide demonstrates how to build a production-ready payment system on Solana that accepts any SPL token as payment while settling in USDC. The system leverages Jupiter's aggregation protocol for seamless token swaps and implements a secure, server-side transaction architecture.
+
+## System Architecture Overview
+
+The payment system is designed with a clear separation of concerns and security-first approach:
+
+- **Token Discovery Engine**: Dynamically fetches and validates user tokens with real-time pricing
+- **Payment Processing Pipeline**: Server-side transaction creation with client-side signing
+- **Jupiter Integration Layer**: Automatic token-to-USDC conversion for non-USDC payments
+- **Security Framework**: Comprehensive validation and error handling
+
+This architecture ensures that sensitive operations (RPC calls, transaction creation) remain server-side while maintaining user control over transaction signing.
+
+## Token Discovery, Dynamic Pricing, and Secure Payment Flow
+
+### Core Token Fetching Logic
+
+The `fetchTokens` function is the backbone of the payment system. It discovers all user tokens, fetches real-time prices, and calculates the precise amount of each token required to meet a USD-denominated threshold (e.g., $40 per hour). This ensures users can pay with any supported SPL token, while the system always receives the correct value in USDC.
+
+```typescript
+async function fetchTokens(userKey: string): Promise<TokenInfo[]> {
+  const tokenAccounts = await getTokenAccounts(userKey);
+  const mintAddresses = tokenAccounts.map((x) => x.data.mint.toBase58());
+  const [mints, prices] = await Promise.all([
+    getMints(mintAddresses),
+    getPrices(mintAddresses),
+  ]);
+
+  const tokens = await Promise.all(
+    tokenAccounts.map(async (accountData) => {
+      try {
+        const mint = accountData.data.mint.toBase58();
+        const mintData = mints[mint];
+        const amount = accountData.data.amount.dividedBy(
+          new BigNumber(10).pow(mintData.decimals),
+        );
+
+        const price = prices[mint]?.usdPrice;
+        if (!price) return null;
+
+        const totalValue = amount.multipliedBy(new BigNumber(price));
+        if (totalValue.isLessThan(threshold)) return null;
+
+        const metadata = await getMetadata(mint);
+        // Calculate the amount of this token needed to pay for one unit (e.g., one hour)
+        const unitAmount = threshold.dividedBy(price).toFixed(mintData.decimals);
+
+        return {
+          mint,
+          address: accountData.pubkey,
+          amount: amount.toFixed(2),
+          value: totalValue.toFixed(2),
+          decimals: mintData.decimals,
+          metadata,
+          unitAmount, // Amount of this token needed for one unit (e.g., one hour)
+        } as TokenInfo;
+      } catch (e: any) {
+        return null;
+      }
+    }),
+  );
+
+  const filteredTokens = tokens.filter(
+    (token) => token !== null,
+  ) as TokenInfo[];
+
+  // Handle native SOL
+  const solMint = mintFromSymbol["SOL"];
+  const solDecimals = mintDecimals["SOL"];
+  const solBalance = await config.SOL_RPC.getBalance(new PublicKey(userKey));
+  const solAmount = new BigNumber(solBalance).dividedBy(
+    new BigNumber(10).pow(solDecimals),
+  );
+  const price = await getPrice(solMint);
+  if (price !== null) {
+    const priceBN = new BigNumber(price);
+    const solValue = solAmount.multipliedBy(priceBN);
+    if (solValue.isGreaterThan(threshold)) {
+      filteredTokens.push({
+        mint: solMint,
+        address: userKey,
+        amount: solAmount.toFixed(2),
+        value: solValue.toFixed(2),
+        decimals: solDecimals,
+        metadata: {
+          name: "Solana",
+          symbol: "SOL",
+          image: "/solanaLogo.svg",
+        },
+        unitAmount: threshold.dividedBy(priceBN).toFixed(solDecimals),
+      });
+    }
+  }
+
+  return filteredTokens;
+}
+```
+
+**Key Features:**
+- **Real-Time Pricing:** Uses Jupiter's Price API v3 for up-to-date USD prices.
+- **Eligibility Filtering:** Only tokens with a value above the threshold are shown.
+- **Unit Amount Calculation:** Returns the exact amount of each token needed to pay for one unit (e.g., one hour).
+- **SOL Support:** Native SOL is handled seamlessly alongside SPL tokens.
+
+### Intelligent Caching Strategy
+
+The caching system significantly reduces RPC calls and improves performance:
+
+```typescript
+async function getMints(mints: string[]): Promise<Record<string, DecodedMint>> {
+  const missingMints: PublicKey[] = [];
+
+  const cachedData = await Promise.all(
+    mints.map(async (mint, index) => {
+      const cacheMint = await db.collection("mint").doc(mint).get();
+
+      if (cacheMint.exists) {
+        return cacheMint.data() as DecodedMint;
+      } else {
+        missingMints.push(new PublicKey(mint));
+        return null;
+      }
+    }),
+  );
+
+  const filteredCachedData = cachedData.filter(
+    (x) => x !== null,
+  ) as DecodedMint[];
+  const fetchedData = await fetchMints(missingMints);
+  const combinedData: Record<string, DecodedMint> = {};
+
+  filteredCachedData.forEach((data, idx) => {
+    combinedData[mints[idx]] = data;
+  });
+
+  return { ...combinedData, ...fetchedData };
+}
+```
+
+**Caching Benefits:**
+- **Reduced RPC Load**: Minimizes expensive blockchain queries
+- **Improved Response Times**: Cached data returns instantly
+- **Cost Optimization**: Fewer RPC calls mean lower infrastructure costs
+- **Scalability**: System can handle more users without proportional RPC increases
+
+### Metadata Management
+
+Token metadata provides essential information for UI rendering and user experience:
+
+```typescript
+async function getMetadata(mint: string): Promise<Metadata> {
+  const cachedMetadata = await db.collection("metadata").doc(mint).get();
+  if (cachedMetadata.exists) {
+    const metadata = cachedMetadata.data() as any;
+    return {
+      name: metadata.name,
+      symbol: metadata.symbol,
+      image: metadata.image,
+    };
+  }
+
+  const metadata = await getTokenInfo(mint);
+  await db.collection("metadata").doc(mint).set(metadata);
+  return {
+    name: metadata.name,
+    symbol: metadata.symbol,
+    image: metadata.image,
+  };
+}
+```
+
+## User Interface Components
+
+The token picker component provides an intuitive interface for payment selection while handling complex state management behind the scenes.
+
+### Token Picker Component
+
+```tsx
+"use client";
+
+import { TokenInfo } from "@/actions/types";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { Button } from "./ui/button";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { ClipLoader } from "react-spinners";
+import { LogOutIcon } from "lucide-react";
+
+export type TokenPickerProps = {
+  tokens: TokenInfo[];
+  selectedToken: TokenInfo | undefined;
+  setSelectedToken: (token: TokenInfo) => void;
+  handlePayment: () => void;
+  quantity: number;
+  loading: boolean;
+};
+
+export function TokenPicker({
+  tokens,
+  selectedToken,
+  setSelectedToken,
+  handlePayment,
+  quantity,
+  loading,
+}: TokenPickerProps) {
+  const { disconnect } = useWallet();
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-full w-full gap-5">
+        <ClipLoader size={50} color={"#123abc"} loading={loading} />
+        Fetching tokens
+      </div>
+    );
+  }
+
+  if (!selectedToken) {
+    return <span className="px-2">No tokens</span>;
+  }
+
+  return (
+    <div className="flex flex-col w-full">
+      {selectedToken && (
+        <>
+          <div className="flex items-center space-x-2 w-full">
+            <Select
+              onValueChange={(value) =>
+                setSelectedToken(
+                  tokens.find((token) => token.metadata.symbol === value)!,
+                )
+              }
+            >
+              <SelectTrigger className="flex-1 flex items-center justify-between rounded-md border border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                <span>{selectedToken.metadata.symbol}</span>
+                <img
+                  src={selectedToken.metadata.image}
+                  alt={selectedToken.metadata.symbol}
+                  className="w-7 h-7"
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <div className="px-4 py-2 font-medium">
+                  Pay per hour | 50 USD
+                </div>
+                {tokens.map((token) => (
+                  <SelectItem
+                    key={token.metadata.symbol}
+                    value={token.metadata.symbol}
+                  >
+                    <div className="grid grid-cols-[auto_auto_1fr] gap-4 items-center">
+                      <span>{token.metadata.symbol}</span>
+                      <img
+                        src={token.metadata.image}
+                        alt={token.metadata.symbol}
+                        width={28}
+                        height={28}
+                      />
+                      <span className="text-right">{Number(token.value)}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              onClick={handlePayment}
+              className="flex-1 bg-[#7c3aed] text-white rounded-md hover:bg-[#6d28d9] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#7c3aed]"
+            >
+              Pay {(
+                Number(selectedToken.unitAmount || 0) * (quantity === 0 ? 1 : quantity)
+              ).toFixed(2)} {selectedToken.metadata.symbol}
+            </Button>
+            <Button
+              type="button"
+              onClick={disconnect}
+              className="p-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            >
+              <LogOutIcon className="h-5 w-5" />
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+**Component Features:**
+- **Loading States**: Provides clear feedback during token fetching
+- **Dynamic Pricing**: Real-time calculation of payment amounts
+- **Token Visualization**: Displays token icons and symbols for better UX
+- **Error Handling**: Graceful degradation when no tokens are available
+
+## Transaction Processing Architecture
+
+The transaction flow is designed with security and reliability as primary concerns. The system separates transaction creation (server-side) from transaction signing (client-side) to maintain security while preserving user control.
+
+### Server-Side Transaction Creation
+
+The transaction creation process handles the complex logic of building Solana transactions, including Jupiter integration for token swaps:
+
+```typescript
+// createTransaction (is a nextjs action)
+"use server";
+
+import config from "@/lib/config";
+import {
+  TEN,
+  USDC_AMOUNT,
+  USDC_DECIMALS,
+  USDC_MINT,
+  USDC_MINT_KEY,
+} from "@/lib/constants";
+import { getJupInstructions } from "@/lib/jup";
+import { createPayInstruction, getTransaction } from "@/lib/solana";
+import { getAccount, getAssociatedTokenAddress } from "@solana/spl-token";
+import { PublicKey, TransactionInstruction } from "@solana/web3.js";
+import BigNumber from "bignumber.js";
+
+export async function createTransaction(
+  pubkey: string,
+  quantity: string,
+  currency: string,
+  decimals: number,
+) {
+  try {
+    const signer = new PublicKey(pubkey);
+    const senderATA = await getAssociatedTokenAddress(USDC_MINT_KEY, signer);
+    const senderAccount = await getAccount(config.SOL_RPC, senderATA);
+    if (!senderAccount.isInitialized) throw new Error("sender not initialized");
+    if (senderAccount.isFrozen) throw new Error("sender frozen");
+
+    const quantityBN = new BigNumber(quantity);
+    const amount = String(
+      USDC_AMOUNT.multipliedBy(quantityBN)
+        .times(TEN.pow(USDC_DECIMALS))
+        .integerValue(BigNumber.ROUND_FLOOR),
+    );
+
+    const instructions: TransactionInstruction[] = [];
+    const lookupTableAddresses: string[] = [];
+    if (currency !== USDC_MINT) {
+      const { addressLookupTableAddresses, jupInstructions } =
+        await getJupInstructions(pubkey, currency, quantityBN);
+
+      instructions.push(...jupInstructions);
+      lookupTableAddresses.push(...addressLookupTableAddresses);
+    } else {
+      const tokens = BigInt(amount);
+      if (tokens > senderAccount.amount) throw new Error("insufficient funds");
+    }
+
+    const payInstruction = await createPayInstruction(
+      amount,
+      signer,
+      senderATA,
+    );
+    instructions.push(payInstruction);
+
+    return await getTransaction(instructions, signer, lookupTableAddresses);
+  } catch (error: any) {
+    console.error("Transaction creation failed:", error.message);
+  }
+}
+```
+
+**Security Considerations:**
+- **Server-Side RPC**: Keeps RPC endpoints secure and hidden from client
+- **Account Validation**: Verifies account state before transaction creation
+- **Fund Verification**: Checks sufficient balance for USDC payments
+- **Error Handling**: Comprehensive error catching and logging
+
+### Jupiter Integration for Token Swaps
+
+Jupiter integration enables seamless conversion of any SPL token to USDC:
+
+```typescript
+// jupiter request
+export async function getJupInstructions(
+  signer: string,
+  inputMint: string,
+  quantity: BigNumber,
+): Promise<JupInstructions> {
+  const quoteResponse = await getJupQuote(inputMint, quantity);
+  const {
+    setupInstructions,
+    swapInstruction,
+    cleanupInstruction,
+    otherInstructions,
+    addressLookupTableAddresses,
+  } = await ky
+    .post("https://quote-api.jup.ag/v6/swap-instructions", {
+      json: {
+        quoteResponse,
+        trackingAccount: PAYMENT_REFERENCE.toBase58(),
+        userPublicKey: signer,
+        wrapAndUnwrapSol: true,
+        useSharedAccounts: false,
+        dynamicComputeUnitLimit: false,
+        skipUserAccountsRpcCalls: true,
+        asLegacyTransaction: false,
+        useTokenLedger: false,
+      },
+      retry: {
+        limit: 5,
+        statusCodes: [408, 413, 429, 500, 502, 503, 504, 422],
+        methods: ["post"],
+        delay: (attemptCount) => 0.3 * 2 ** (attemptCount - 1) * 1000,
+      },
+    })
+    .json<JupSwapInstructionsResponse>();
+
+  const jupInstructions: TransactionInstruction[] = [];
+  if (setupInstructions && setupInstructions.length > 0)
+    jupInstructions.push(
+      ...setupInstructions.map((ix: JupInstruction) =>
+        deserializeInstruction(ix),
+      ),
+    );
+  jupInstructions.push(deserializeInstruction(swapInstruction));
+  if (cleanupInstruction)
+    jupInstructions.push(deserializeInstruction(cleanupInstruction));
+  if (otherInstructions && otherInstructions.length > 0)
+    jupInstructions.push(
+      ...otherInstructions.map((ix: JupInstruction) =>
+        deserializeInstruction(ix),
+      ),
+    );
+
+  return { jupInstructions, addressLookupTableAddresses };
+}
+```
+
+**Jupiter Features:**
+- **Automatic Routing**: Finds optimal swap paths across multiple DEXs
+- **Retry Logic**: Exponential backoff for failed requests
+- **Instruction Assembly**: Properly orders setup, swap, and cleanup instructions
+- **Address Lookup Tables**: Optimizes transaction size and cost
+
+### Client-Side Transaction Handling
+
+The client-side handler manages the user interaction and transaction signing process:
+
+```typescript
+async function handleSolanaPayment(data: z.infer<typeof MeetingSchema>) {
+  try {
+    if (!publicKey || !signTransaction || !selectedToken) {
+      toast({ title: "Wallet not connected" });
+      return;
+    }
+
+    const quantity = data.hours.length.toString();
+    const { mint, decimals } = selectedToken!;
+    const transaction = await createTransaction(
+      publicKey!.toBase58(),
+      quantity,
+      mint,
+      decimals,
+    );
+    if (!transaction) return;
+
+    const deserializedTransaction = VersionedTransaction.deserialize(
+      Buffer.from(transaction, "base64"),
+    );
+    const signedTransaction = await signTransaction!(deserializedTransaction);
+    const serializedTransaction = Buffer.from(
+      signedTransaction.serialize(),
+    ).toString("base64");
+    const formData = JSON.stringify({
+      ...data,
+      dob: data.dob.toISOString(),
+    });
+    const signature = await sendTransaction(serializedTransaction, formData);
+
+    toast({
+      title: "Payment done. Meeting booked.",
+      description: (
+        <a
+          href={`https://solana.fm/tx/${signature}`}
+          className="text-blue-500"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Check Transaction
+        </a>
+      ),
+    });
+  } catch (error: any) {
+    toast({ title: error.message || "Payment processing failed." });
+  }
+}
+```
+
+**User Experience Features:**
+- **Transaction Explorer Links**: Direct links to verify transactions
+- **Error Feedback**: Clear error messages for failed operations
+- **Loading States**: Visual feedback during transaction processing
+- **Success Confirmation**: Immediate confirmation of successful payments
+
+## Transaction Confirmation and Validation
+
+The confirmation process ensures transaction integrity and updates the system state accordingly:
+
+```typescript
+// confirmTransaction
+"use server";
+
+import { db } from "@/lib/firebase";
+import config from "@/lib/config";
+import {
+  HOUR_PRICE,
+  mintDecimals,
+  PAYMENT_REFERENCE,
+  RIKI_PUBKEY,
+  TEN,
+  USDC_MINT,
+} from "@/lib/constants";
+import {
+  AccountLayout,
+  transferCheckedInstructionData,
+} from "@solana/spl-token";
+import { VersionedTransaction } from "@solana/web3.js";
+import BigNumber from "bignumber.js";
+import { generateMeet } from "@/lib/googleMeet";
+
+export async function sendTransaction(transaction: string, data: string) {
+  try {
+    const deserializedTransaction = VersionedTransaction.deserialize(
+      Buffer.from(transaction, "base64"),
+    );
+    const signature = await config.SOL_RPC.sendRawTransaction(
+      deserializedTransaction.serialize(),
+      {
+        skipPreflight: true,
+        maxRetries: 0,
+      },
+    );
+
+    let confirmedTx: any = null;
+    const latestBlockHash = await config.SOL_RPC.getLatestBlockhash();
+    const confirmTransactionPromise = config.SOL_RPC.confirmTransaction(
+      {
+        signature,
+        blockhash: deserializedTransaction.message.recentBlockhash,
+        lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+      },
+      "confirmed",
+    );
+
+    while (!confirmedTx) {
+      confirmedTx = await Promise.race([
+        confirmTransactionPromise,
+        new Promise((resolve) =>
+          setTimeout(() => {
+            resolve(null);
+          }, 2000),
+        ),
+      ]);
+
+      if (!confirmedTx) {
+        await config.SOL_RPC.sendRawTransaction(
+          deserializedTransaction.serialize(),
+          {
+            skipPreflight: true,
+            maxRetries: 0,
+          },
+        );
+      }
+    }
+
+    if (!confirmedTx) throw new Error("Transaction confirmation failed");
+
+    const response = await fetchTransaction(signature);
+    const { message } = response.transaction;
+    const versionedTransaction = new VersionedTransaction(message);
+    const instructions = versionedTransaction.message.compiledInstructions;
+
+    const payInstruction = instructions.pop();
+    if (!payInstruction) throw new Error("missing transfer instruction");
+
+    const { amount: rawAmount } = transferCheckedInstructionData.decode(
+      payInstruction.data,
+    );
+    const [source, mint, destination, owner, paymentReference] =
+      payInstruction.accountKeyIndexes.map(
+        (index: number) =>
+          versionedTransaction.message.staticAccountKeys[index],
+      );
+
+    const sellerATA = await config.SOL_RPC.getAccountInfo(
+      destination,
+      "confirmed",
+    );
+    if (!sellerATA) throw new Error("error fetching ata info");
+    const decodedSellerATA = AccountLayout.decode(sellerATA.data);
+
+    const price = BigNumber(HOUR_PRICE)
+      .times(TEN.pow(mintDecimals["USDC"]))
+      .integerValue(BigNumber.ROUND_FLOOR);
+    const signer = owner.toBase58();
+    const seller = decodedSellerATA.owner.toBase58();
+    const currency = decodedSellerATA.mint.toBase58();
+    const amount = rawAmount.toString(16);
+    const quotient = new BigNumber(amount, 16).dividedBy(price);
+
+    if (!quotient.isInteger()) throw new Error("amount not transferred");
+    if (PAYMENT_REFERENCE.toString() !== paymentReference.toString())
+      throw new Error("wrong app reference");
+    if (seller !== RIKI_PUBKEY.toBase58()) throw new Error("wrong seller");
+    if (currency !== USDC_MINT) throw new Error("wrong seller");
+
+    await db.collection(`cryptoPayment`).doc(signature).set({
+      signature,
+      signers,
+      currency,
+      amount,
+      timestamp: new Date().toISOString(),
+    });
+
+    await generateMeet(data);
+
+    return signature;
+  } catch (error: any) {
+    console.error("An error occurred:", error);
+    return error.message;
+  }
+}
+
+async function fetchTransaction(signature: string) {
+  const retryDelay = 400;
+  const response = await config.SOL_RPC.getTransaction(signature, {
+    commitment: "confirmed",
+    maxSupportedTransactionVersion: 0,
+  });
+  if (response) {
+    return response;
+  } else {
+    await new Promise((resolve) => setTimeout(resolve, retryDelay));
+    return fetchTransaction(signature);
+  }
+}
+```
+
+**Validation Features:**
+- **Transaction Confirmation**: Waits for blockchain confirmation
+- **Amount Verification**: Validates exact payment amounts
+- **Reference Validation**: Ensures payment is for the correct service
+- **Seller Verification**: Confirms payment to the correct recipient
+- **Currency Validation**: Verifies USDC settlement
+
+## System Benefits and Production Considerations
+
+### Security Advantages
+- **RPC Key Protection**: Server-side RPC calls keep endpoints secure
+- **Transaction Validation**: Comprehensive validation prevents fraud
+- **User Control**: Client-side signing maintains user sovereignty
+- **Error Handling**: Robust error handling prevents system failures
+
+### Performance Optimizations
+- **Caching Strategy**: Reduces RPC calls and improves response times
+- **Parallel Processing**: Concurrent operations reduce latency
+- **Batch Operations**: Efficient database updates
+- **Retry Logic**: Automatic retry mechanisms for failed operations
+
+### Scalability Features
+- **Modular Architecture**: Easy to extend and maintain
+- **Database Optimization**: Efficient data storage and retrieval
+- **Load Distribution**: Handles multiple concurrent users
+- **Monitoring Ready**: Built-in logging for performance tracking
+
+### User Experience Enhancements
+- **Real-time Pricing**: Live token price updates
+- **Transaction Tracking**: Direct links to blockchain explorers
+- **Error Feedback**: Clear, actionable error messages
+- **Loading States**: Visual feedback during operations
+
+This payment system demonstrates enterprise-grade architecture for Solana-based payments, combining security, performance, and user experience into a production-ready solution. The modular design allows for easy extension and maintenance while the comprehensive validation ensures reliable operation in production environments. 

@@ -31,7 +31,7 @@ export const mintDecimals: Record<string, number> = {
   SOL: 9,
 };
 
-export const HOUR_PRICE = 50;
+export const HOUR_PRICE = 40;
 export const USDC_AMOUNT = new BigNumber(HOUR_PRICE);
 export const USDC_MINT = mintFromSymbol["USDC"];
 export const USDC_DECIMALS = mintDecimals["USDC"];

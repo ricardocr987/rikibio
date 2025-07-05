@@ -106,7 +106,7 @@ async function notifyMeet(
     meetingTime,
     meet.hangoutLink,
     meet.htmlLink,
-    note
+    note,
   );
 
   for (const to of participants) {

@@ -28,11 +28,14 @@ async function fetchTokens(userKey: string): Promise<TokenInfo[]> {
           new BigNumber(10).pow(mintData.decimals),
         );
 
-        const price = prices.data[mint].price;
+        const price = prices[mint]?.usdPrice;
+        if (!price) return null;
+        
         const totalValue = amount.multipliedBy(new BigNumber(price));
         if (totalValue.isLessThan(threshold)) return null;
 
         const metadata = await getMetadata(mint);
+        const unitAmount = (threshold.dividedBy(price)).toFixed(mintData.decimals);
         return {
           mint,
           address: accountData.pubkey,
@@ -40,7 +43,8 @@ async function fetchTokens(userKey: string): Promise<TokenInfo[]> {
           value: threshold.dividedBy(price).toFixed(2).toString(),
           decimals: mintData.decimals,
           metadata,
-        } as TokenInfo;
+          unitAmount,
+        } as TokenInfo
       } catch (e: any) {
         return null;
       }
@@ -58,11 +62,10 @@ async function fetchTokens(userKey: string): Promise<TokenInfo[]> {
     new BigNumber(10).pow(solDecimals),
   );
   const price = await getPrice(solMint);
-  if (price) {
+  if (price !== null) {
     const priceBN = new BigNumber(price);
-    const solValue = new BigNumber(HOUR_PRICE).dividedBy(priceBN);
-    const totalValue = solAmount.multipliedBy(priceBN);
-    if (totalValue.isGreaterThan(HOUR_PRICE)) {
+    const solValue = solAmount.multipliedBy(priceBN);
+    if (solValue.isGreaterThan(threshold)) {
       filteredTokens.push({
         mint: solMint,
         address: userKey,
@@ -74,6 +77,7 @@ async function fetchTokens(userKey: string): Promise<TokenInfo[]> {
           symbol: "SOL",
           image: "/solanaLogo.svg",
         },
+        unitAmount: threshold.dividedBy(priceBN).toFixed(6),
       });
     }
   }

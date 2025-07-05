@@ -33,9 +33,12 @@ export const TokenProvider: React.FC<{ children: ReactNode }> = ({
   const [loadingTokens, setLoadingTokens] = useState(false);
   const [selectedToken, setSelectedToken] = useState<TokenInfo>();
 
-  useEffect(() => {
+  useEffect(() => {    
     const fetchTokenInfo = async () => {
-      if (!publicKey) return;
+      if (!publicKey) {
+        console.log("No publicKey, returning early");
+        return;
+      }
 
       setLoadingTokens(true);
       try {
@@ -44,13 +47,17 @@ export const TokenProvider: React.FC<{ children: ReactNode }> = ({
             searchParams: {
               userKey: publicKey.toString(),
             },
-            cache: 'no-store',
+            cache: "no-store",
           })
           .json<FetchTokensResponse>();
 
         if ("tokens" in response) {
           setTokens(response.tokens);
-          setSelectedToken(response.tokens[0]);
+          if (response.tokens.length > 0) {
+            setSelectedToken(response.tokens[0]);
+          } else {
+            setSelectedToken(undefined);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch tokens and balances", error);

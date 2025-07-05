@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { FaGithub, FaTelegram, FaTwitter } from "react-icons/fa";
 import Link from "next/link";
 import { ArticleSection } from "@/components/ArticleSection";
-import { Article, getArticles } from "@/lib/notion";
+import { Article, getArticles } from "@/lib/mdx";
 import ky from "ky";
 import config from "@/lib/config";
 
@@ -18,10 +18,12 @@ type InitialData = {
 };
 
 async function getInitialData(): Promise<InitialData> {
-  const { meetings, firstDate } = await ky.get(`${config.APP_URL}/api/initialData`, {
-    cache: 'no-store',
-  }).json<InitialData>();
-  
+  const { meetings, firstDate } = await ky
+    .get(`${config.APP_URL}/api/initialData`, {
+      cache: "no-store",
+    })
+    .json<InitialData>();
+
   const articles = await getArticles();
 
   return { meetings, firstDate, articles };
@@ -48,10 +50,7 @@ export default async function Home() {
                 <FaTelegram />
               </Link>
             </Button>
-            <Button
-              asChild
-              className="bg-black text-white hover:bg-black/80"
-            >
+            <Button asChild className="bg-black text-white hover:bg-black/80">
               <Link href="https://github.com/ricardocr987" target="_blank">
                 <FaGithub />
               </Link>

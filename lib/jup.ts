@@ -141,14 +141,13 @@ export async function getJupTransaction(
 export async function getPrice(
   currency: string,
   vsToken: string = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-) {
+): Promise<number | null> {
   try {
-    const priceUrl = "https://price.jup.ag/v6/price";
+    const priceUrl = "https://lite-api.jup.ag/price/v3";
     const priceResponse = await ky
       .get(priceUrl, {
         searchParams: {
           ids: currency,
-          vsToken: vsToken,
         },
         retry: {
           limit: 5,
@@ -159,7 +158,8 @@ export async function getPrice(
       })
       .json<JupQuote>();
 
-    return priceResponse.data[currency].price;
+    const tokenPrice = priceResponse[currency];
+    return tokenPrice ? tokenPrice.usdPrice : null;
   } catch {
     return null;
   }
@@ -169,42 +169,32 @@ export async function getPrices(
   mints: string[],
   vsToken: string = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 ): Promise<JupQuote> {
-  const priceUrl = "https://price.jup.ag/v6/price";
-  const results: JupQuote = { data: {}, timeTaken: 0 };
+  const priceUrl = "https://lite-api.jup.ag/price/v3";
+  const results: JupQuote = {};
 
-  // Function to create a query string and check its length
-  const createQueryString = (ids: string[]) => {
-    const params = new URLSearchParams({ ids: ids.join(","), vsToken });
-    return `${priceUrl}?${params.toString()}`;
-  };
-
-  // Function to fetch prices for a subset of mints
+  // Function to fetch prices for a subset of mints (max 50 per request as per API docs)
   const fetchSubsetPrices = async (subset: string[]) => {
     const response = await ky
       .get(priceUrl, {
         searchParams: {
           ids: subset.join(","),
-          vsToken,
+        },
+        retry: {
+          limit: 5,
+          statusCodes: [408, 413, 429, 500, 502, 503, 504],
+          methods: ["get"],
+          delay: (attemptCount) => 0.3 * 2 ** (attemptCount - 1) * 1000,
         },
       })
       .json<JupQuote>();
 
-    Object.assign(results.data, response.data);
+    Object.assign(results, response);
   };
 
-  // Split mints into smaller chunks
-  let subset: string[] = [];
-  for (const mint of mints) {
-    const tempSubset = [...subset, mint];
-    if (createQueryString(tempSubset).length > 4000) {
-      await fetchSubsetPrices(subset);
-      subset = [mint];
-    } else {
-      subset = tempSubset;
-    }
-  }
-
-  if (subset.length > 0) {
+  // Split mints into chunks of 50 (API limit)
+  const chunkSize = 50;
+  for (let i = 0; i < mints.length; i += chunkSize) {
+    const subset = mints.slice(i, i + chunkSize);
     await fetchSubsetPrices(subset);
   }
 
@@ -212,14 +202,42 @@ export async function getPrices(
 }
 
 export async function getTokenInfo(mint: string) {
-  const tokenInfo = await ky
-    .get(`https://tokens.jup.ag/token/${mint}`)
-    .json<JupTokenInfo>();
-  console.log("tokenInfo", tokenInfo);
-  return {
-    mint,
-    name: tokenInfo.name,
-    symbol: tokenInfo.symbol,
-    image: tokenInfo.logoURI,
-  };
+  try {
+    const tokenInfoResponse = await ky
+      .get(`https://lite-api.jup.ag/tokens/v2/search`, {
+        searchParams: {
+          query: mint,
+        },
+        retry: {
+          limit: 5,
+          statusCodes: [408, 413, 429, 500, 502, 503, 504, 422],
+          methods: ["get"],
+          delay: (attemptCount) => 0.3 * 2 ** (attemptCount - 1) * 1000,
+        },
+      })
+      .json<JupTokenInfo[]>();
+
+    // Find the token that matches the exact mint address
+    const tokenInfo = tokenInfoResponse.find(token => token.id === mint);
+    
+    if (!tokenInfo) {
+      throw new Error(`Token not found for mint: ${mint}`);
+    }
+
+    return {
+      mint: tokenInfo.id,
+      name: tokenInfo.name,
+      symbol: tokenInfo.symbol,
+      image: tokenInfo.icon,
+    };
+  } catch (error) {
+    console.error(`Failed to fetch token info for mint ${mint}:`, error);
+    // Return a fallback object with basic info
+    return {
+      mint,
+      name: "Unknown Token",
+      symbol: "UNKNOWN",
+      image: "",
+    };
+  }
 }

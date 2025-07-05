@@ -11,6 +11,7 @@ import { Button } from "./ui/button";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { ClipLoader } from "react-spinners";
 import { LogOutIcon } from "lucide-react";
+import { HOUR_PRICE } from "@/lib/constants";
 
 export type TokenPickerProps = {
   tokens: TokenInfo[];
@@ -41,7 +42,28 @@ export function TokenPicker({
   }
 
   if (!selectedToken) {
-    return <span className="px-2">No tokens</span>;
+    if (tokens.length > 0) {
+      // If we have tokens but no selectedToken, set the first one
+      setSelectedToken(tokens[0]);
+      return (
+        <div className="flex justify-center items-center h-full w-full gap-5">
+          <ClipLoader size={50} color={"#123abc"} loading={true} />
+          Loading tokens...
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center justify-between w-full">
+        <span className="px-2 text-sm">No tokens with more than {HOUR_PRICE}$ value</span>
+        <Button
+          type="button"
+          onClick={disconnect}
+          className="p-2 bg-[#22c55e] text-black rounded-md hover:bg-[#16a34a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#22c55e]"
+        >
+          <LogOutIcon className="h-5 w-5" />
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -56,7 +78,7 @@ export function TokenPicker({
                 )
               }
             >
-              <SelectTrigger className="flex-1 flex items-center justify-between rounded-md border border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+              <SelectTrigger className="flex-1 flex items-center justify-between rounded-md border border-[#22c55e] bg-[#22c55e] text-black shadow-sm focus:border-[#22c55e] focus:ring focus:ring-[#22c55e] focus:ring-opacity-50">
                 <span>{selectedToken.metadata.symbol}</span>
                 <img
                   src={selectedToken.metadata.image}
@@ -64,14 +86,15 @@ export function TokenPicker({
                   className="w-7 h-7"
                 />
               </SelectTrigger>
-              <SelectContent>
-                <div className="px-4 py-2 font-medium">
-                  Pay per hour | 50 USD
+              <SelectContent className="bg-[#22c55e] text-black border-[#22c55e] focus-within:border-[#22c55e] focus-within:ring-[#22c55e]">
+                <div className="px-4 py-2 font-medium text-black">
+                  Pay per hour | 40 USD
                 </div>
                 {tokens.map((token) => (
                   <SelectItem
                     key={token.metadata.symbol}
                     value={token.metadata.symbol}
+                    className="bg-[#22c55e] text-black hover:bg-[#4ade80] data-[state=checked]:bg-[#22c55e] data-[state=checked]:text-black focus:bg-[#4ade80] focus:text-black"
                   >
                     <div className="grid grid-cols-[auto_auto_1fr] gap-4 items-center">
                       <span>{token.metadata.symbol}</span>
@@ -90,15 +113,16 @@ export function TokenPicker({
             <Button
               type="button"
               onClick={handlePayment}
-              className="flex-1 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="flex-1 bg-[#7c3aed] text-white rounded-md hover:bg-[#6d28d9] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#7c3aed]"
             >
-              Pay {(Math.trunc((Number(selectedToken.value) * (quantity === 0 ? 1 : quantity)) * 100) / 100).toFixed(2)}{" "}
-              {selectedToken.metadata.symbol}
+              Pay {(
+                Number(selectedToken.unitAmount || 0) * (quantity === 0 ? 1 : quantity)
+              ).toFixed(2)} {selectedToken.metadata.symbol}
             </Button>
             <Button
               type="button"
               onClick={disconnect}
-              className="p-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              className="p-2 bg-[#22c55e] text-black rounded-md hover:bg-[#16a34a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#22c55e]"
             >
               <LogOutIcon className="h-5 w-5" />
             </Button>
