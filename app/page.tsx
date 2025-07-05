@@ -1,6 +1,6 @@
 import { ContactSection } from "@/components/ContactSection";
 import { Button } from "@/components/ui/button";
-import { FaGithub, FaTelegram, FaTwitter } from "react-icons/fa";
+import { FaGithub, FaTelegram, FaTwitter, FaRegFilePdf } from "react-icons/fa";
 import Link from "next/link";
 import { ArticleSection } from "@/components/ArticleSection";
 import { Article, getArticles } from "@/lib/mdx";
@@ -43,26 +43,34 @@ export default async function Home() {
             alt="Ricardo builder mode"
             className="h-48 w-48 rounded-lg object-cover mb-4"
           />
-          <div className="flex space-x-4">
+          <div className="flex space-x-3">
             <Button
               asChild
-              className="bg-blue-500 text-white hover:bg-blue-600"
+              className="bg-blue-500 text-white hover:bg-blue-600 px-3"
             >
               <Link href="https://t.me/ricardocr987" target="_blank">
                 <FaTelegram />
               </Link>
             </Button>
-            <Button asChild className="bg-black text-white hover:bg-black/80">
+            <Button asChild className="bg-black text-white hover:bg-black/80 px-3">
               <Link href="https://github.com/ricardocr987" target="_blank">
                 <FaGithub />
               </Link>
             </Button>
             <Button
               asChild
-              className="bg-blue-500 text-white hover:bg-blue-600"
+              className="bg-blue-500 text-white hover:bg-blue-600 px-3"
             >
               <Link href="https://twitter.com/ricardocr987" target="_blank">
                 <FaTwitter />
+              </Link>
+            </Button>
+            <Button
+              asChild
+              className="bg-red-500 text-white hover:bg-red-600 px-3"
+            >
+              <Link href="/CV.pdf" target="_blank" download>
+                <FaRegFilePdf />
               </Link>
             </Button>
           </div>
