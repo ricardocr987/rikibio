@@ -7,6 +7,9 @@ import { Article, getArticles } from "@/lib/mdx";
 import ky from "ky";
 import config from "@/lib/config";
 
+// Force dynamic rendering to avoid build-time API calls
+export const dynamic = 'force-dynamic';
+
 export type Meetings = {
   [date: string]: string[];
 };
@@ -14,10 +17,9 @@ export type Meetings = {
 type InitialData = {
   meetings: Meetings;
   firstDate: string;
-  articles: Article[];
 };
 
-async function getInitialData(): Promise<InitialData> {
+async function getInitialData(): Promise<{ meetings: Meetings; firstDate: string; articles: Article[] }> {
   const { meetings, firstDate } = await ky
     .get(`${config.APP_URL}/api/initialData`, {
       cache: "no-store",

@@ -1,6 +1,5 @@
 import { db } from "@/lib/firebase";
 import { NextResponse } from "next/server";
-import { getArticles } from "@/lib/notion";
 
 export async function GET(req: Request) {
   try {
@@ -39,13 +38,9 @@ export async function GET(req: Request) {
       today.setDate(today.getDate() + 1);
     }
 
-    // Fetch articles
-    const articles = await getArticles();
-
     return NextResponse.json({
       meetings,
       firstDate: today.toISOString(),
-      articles,
     });
   } catch (error) {
     console.error("Error fetching initial data:", error);
