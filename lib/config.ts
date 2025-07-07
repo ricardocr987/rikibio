@@ -19,13 +19,12 @@ const stripeConfig = {
 
 const googleConfig = {
   GOOGLE_MEET: {
-    calendarId: process.env.CALENDAR_ID,
+    calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
     auth: {
       email: process.env.MEET_MAIL,
       key: process.env.MEET_SECRET
         ? process.env.MEET_SECRET.replace(/\\n/g, "\n")
         : "",
-      subject: "contact@riki.bio",
       scopes: [
         "https://www.googleapis.com/auth/calendar",
         "https://www.googleapis.com/auth/calendar.events",

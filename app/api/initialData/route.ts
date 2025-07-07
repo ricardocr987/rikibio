@@ -25,22 +25,29 @@ export async function GET(req: Request) {
       meetings[day].push(...(data.hours || []));
     });
 
-    // Calculate next available business day
-    today.setHours(0, 0, 0, 0);
-    today.setDate(today.getDate() + 1);
+    // Set vacation end date (first available date after vacation) to July 20th
+    const vacationEndDate = new Date('2025-07-19');
+    vacationEndDate.setHours(0, 0, 0, 0);
+    
+    // Use the later date between today and vacation end date
+    const firstDate = new Date(Math.max(today.getTime(), vacationEndDate.getTime()));
+    console.log(firstDate.toISOString());
+    firstDate.setHours(0, 0, 0, 0);
+    firstDate.setDate(firstDate.getDate() + 1);
 
     // Skip weekends
-    if (today.getDay() === 6) {
+    if (firstDate.getDay() === 6) {
       // Saturday
-      today.setDate(today.getDate() + 2);
-    } else if (today.getDay() === 0) {
+      firstDate.setDate(firstDate.getDate() + 2);
+    } else if (firstDate.getDay() === 0) {
       // Sunday
-      today.setDate(today.getDate() + 1);
+      firstDate.setDate(firstDate.getDate() + 1);
     }
 
+    console.log(firstDate.toISOString());
     return NextResponse.json({
       meetings,
-      firstDate: today.toISOString(),
+      firstDate: firstDate.toISOString(),
     });
   } catch (error) {
     console.error("Error fetching initial data:", error);

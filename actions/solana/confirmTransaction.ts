@@ -21,7 +21,7 @@ import { generateMeet } from "@/lib/googleMeet";
 export async function sendTransaction(transaction: string, data: string) {
   try {
     const deserializedTransaction = VersionedTransaction.deserialize(
-      Buffer.from(transaction, "base64"),
+      Buffer.from(transaction, "base64") as Uint8Array,
     );
     const signature = await config.SOL_RPC.sendRawTransaction(
       deserializedTransaction.serialize(),
@@ -87,7 +87,9 @@ export async function sendTransaction(transaction: string, data: string) {
       "confirmed",
     );
     if (!sellerATA) throw new Error("error fetching ata info");
-    const decodedSellerATA = AccountLayout.decode(sellerATA.data);
+    const decodedSellerATA = AccountLayout.decode(
+      sellerATA.data as Uint8Array,
+    );
 
     const price = BigNumber(HOUR_PRICE)
       .times(TEN.pow(mintDecimals["USDC"]))

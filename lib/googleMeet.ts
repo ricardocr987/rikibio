@@ -33,6 +33,8 @@ export async function generateMeet(data: string): Promise<void> {
         dob: dob.getTime(),
         timestamp: new Date().getTime(),
       });
+
+    // Create event without attendees to avoid domain-wide delegation issue
     const response = await ky
       .post(
         `https://www.googleapis.com/calendar/v3/calendars/${config.GOOGLE_MEET.calendarId}/events`,
@@ -54,7 +56,7 @@ export async function generateMeet(data: string): Promise<void> {
               createRequest: { requestId },
               conferenceSolution: { key: { type: "hangoutsMeet" } },
             },
-            attendees: participants.map((email) => ({ email })),
+            //attendees: participants.map((email) => ({ email })),
             reminders: {
               useDefault: false,
               overrides: [
@@ -64,7 +66,7 @@ export async function generateMeet(data: string): Promise<void> {
             },
           },
           searchParams: {
-            sendNotifications: "true",
+            sendNotifications: "false", // Set to false since we're not inviting attendees
             conferenceDataVersion: "1",
           },
           headers: {
@@ -76,12 +78,32 @@ export async function generateMeet(data: string): Promise<void> {
       .json();
 
     const meet = response as any;
-    if (!meet.hangoutLink || !meet.htmlLink)
-      throw new Error("Failed to generate Meet Link");
+    console.log("Meet response:", JSON.stringify(meet, null, 2));
+    
+    // Check if we have the required links
+    if (!meet.hangoutLink || !meet.htmlLink) {
+      console.error("Missing Meet links in response:", meet);
+      
+      // Notify participants that Meet link will be provided on the meeting day
+      await notifyMeetWithoutLink(participants, meetingTime, formData.message);
+      return;
+    }
 
     await notifyMeet(participants, meetingTime, meet, formData.message);
   } catch (error: any) {
     console.error("Error creating Google Calendar event:", error);
+    
+    // Even if Meet creation fails, notify participants
+    try {
+      const formData = JSON.parse(data) as z.infer<typeof MeetingSchema>;
+      const dob = new Date(formData.dob);
+      const meetingTime = formatDateProps(dob, formData.hours);
+      const participants = ["ricardocr987@gmail.com", formData.senderEmail];
+      
+      await notifyMeetWithoutLink(participants, meetingTime, formData.message);
+    } catch (notifyError) {
+      console.error("Failed to notify participants:", notifyError);
+    }
   }
 }
 
@@ -107,6 +129,28 @@ async function notifyMeet(
     meet.hangoutLink,
     meet.htmlLink,
     note,
+    participants,
+  );
+
+  for (const to of participants) {
+    await resend.emails.send({
+      from: "Contact Form <contact@riki.bio>",
+      to,
+      subject: "Meeting with Ricardo",
+      react: React.createElement(MeetingPurchase, { message }),
+    });
+  }
+}
+
+async function notifyMeetWithoutLink(
+  participants: string[],
+  meetingTime: MeetingTime,
+  note: string | undefined,
+): Promise<void> {
+  const message = createMailMessageWithoutLink(
+    meetingTime,
+    note,
+    participants,
   );
 
   for (const to of participants) {
@@ -124,6 +168,7 @@ function createMailMessage(
   meetLink: string,
   htmlLink: string,
   note: string | undefined,
+  participants: string[],
 ): string {
   const formattedStartTime = new Date(meetingTime.start).toLocaleString();
   const formattedEndTime = new Date(meetingTime.end).toLocaleString();
@@ -135,7 +180,26 @@ function createMailMessage(
         <strong>Google Calendar Event Link:</strong> <a href="${htmlLink}">${htmlLink}</a><br><br>`;
   const messageOutro = `Accept the calendar event or click the link above at the scheduled time to join the meeting.`;
   const messageNote = note ? `<br><br><strong>Note:</strong> ${note}` : "";
-  return `<p style="font-size: 16px; line-height: 1.5;">${messageIntro}${meetingDetails}${messageOutro}${messageNote}</p>`;
+  const participantsMessage = participants.map((participant) => `<br><strong>Participant:</strong> ${participant}`).join("");
+  return `<p style="font-size: 16px; line-height: 1.5;">${messageIntro}${meetingDetails}${messageOutro}${messageNote}${participantsMessage}</p>`;
+}
+
+function createMailMessageWithoutLink(
+  meetingTime: MeetingTime,
+  note: string | undefined,
+  participants: string[],
+): string {
+  const formattedStartTime = new Date(meetingTime.start).toLocaleString();
+  const formattedEndTime = new Date(meetingTime.end).toLocaleString();
+  const messageIntro = `Hello,<br><br>You have successfully purchased a meeting with me.<br><br>`;
+  const meetingDetails = `
+        <strong>Meeting Start Time:</strong> ${formattedStartTime}<br>
+        <strong>Meeting End Time:</strong> ${formattedEndTime}<br>
+        <strong>Meeting Link:</strong> Will be provided on the day of the meeting<br><br>`;
+  const messageOutro = `The Google Meet link will be sent to you on the day of the meeting. Please check your email for the meeting link.`;
+  const messageNote = note ? `<br><br><strong>Note:</strong> ${note}` : "";
+  const participantsMessage = participants.map((participant) => `<br><strong>Participant:</strong> ${participant}`).join("");
+  return `<p style="font-size: 16px; line-height: 1.5;">${messageIntro}${meetingDetails}${messageOutro}${messageNote}${participantsMessage}</p>`;
 }
 
 export function formatDateProps(
