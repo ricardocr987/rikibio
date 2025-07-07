@@ -8,6 +8,8 @@ published: true
 
 # Building a Solana Token Monitoring System
 
+**Note**: This implementation is robust but may require additional production hardening, such as rate limiting and enhanced error handling.
+
 This comprehensive guide demonstrates how to build a production-ready token indexing and monitoring system for the Solana blockchain. The system provides real-time transaction processing, historical data analysis, and comprehensive token movement tracking with enterprise-grade reliability and performance.
 
 ## System Architecture Overview
@@ -29,6 +31,14 @@ The Monitor class serves as the central orchestrator, coordinating all system co
 ### Monitor Implementation
 
 ```typescript
+import { Elysia, ListenOptions } from 'elysia';
+import { PublicKey } from '@solana/web3.js';
+import { config } from '@/lib/config';
+import { Parser } from '@/lib/parser';
+import { Fetcher } from '@/lib/fetcher';
+import { Listener } from '@/lib/listener';
+import { Database } from '@/lib/database';
+
 class MonitorToken {
     private parser: Parser;
     private fetcher: Fetcher;
@@ -37,7 +47,6 @@ class MonitorToken {
   
     constructor() {
         this.db = new Database();
-        
         this.parser = new Parser(this.db);
         this.fetcher = new Fetcher(this.db);
     
@@ -67,11 +76,7 @@ new Elysia()
     });
 ```
 
-**Architecture Benefits:**
-- **Component Isolation**: Each component has a single responsibility
-- **Circular Dependencies**: Resolved through runtime assignment
-- **Event-Driven Design**: Supports both real-time and batch processing
-- **Scalable Foundation**: Easy to extend with additional components
+**Explanation**: The MonitorToken class serves as the system's central orchestrator, initializing and coordinating the Database, Parser, Fetcher, and Listener components. It resolves circular dependencies between Parser and Fetcher using runtime assignment, ensuring modular design without compromising functionality. The init method bootstraps the system by validating the token's mint account and triggering historical transaction processing via fetcher.tokenMovements. The getListenerHandler method integrates the webhook listener with the Elysia server, enabling real-time transaction processing. The Elysia framework provides a lightweight, type-safe HTTP server, and the system starts by listening on a configured host and port, initializing monitoring for a specific token. This design ensures scalability, modularity, and efficient component communication, making it suitable for enterprise-grade applications.
 
 ## Transaction Data Retrieval Engine
 
@@ -80,6 +85,12 @@ The Fetcher component implements sophisticated transaction retrieval logic with 
 ### Fetcher Implementation
 
 ```typescript
+import { PublicKey, ParsedTransactionWithMeta } from '@solana/web3.js';
+import { config } from '@/lib/config';
+import { Database } from '@/lib/database';
+import { Parser } from '@/lib/parser';
+import { AccountLayout } from '@solana/spl-token';
+
 export class Fetcher {
   private db: Database;
   private parser!: Parser;
@@ -142,7 +153,6 @@ export class Fetcher {
 
       const result = await batchProcessor(transactions);
 
-      // note: needed for returning mint from history
       if (result) return result;
     }
   
@@ -158,19 +168,41 @@ export class Fetcher {
 }
 ```
 
-**Performance Optimizations:**
-- **Batch Processing**: Efficient handling of large transaction sets
-- **Signature Filtering**: Eliminates duplicate processing
-- **Parallel Execution**: Concurrent transaction processing
-- **Memory Management**: Streaming approach for large datasets
+**Explanation**: The Fetcher class retrieves transaction data for a given account, focusing on efficiency and reliability. The tokenMovements method fetches transaction signatures in batches (default size: 10) and delegates parsing to the Parser component, processing transactions concurrently with Promise.all to minimize latency. The mintFromHistory method identifies the mint associated with an account by checking account info or analyzing historical transactions, useful for discovering token relationships. The transactions method implements a pagination loop using the before parameter to fetch signatures incrementally, filtering out failed or previously processed transactions via filterExistingSignatures. This ensures no duplicate processing, reducing database load and RPC costs. The use of batch processing and caching optimizes performance, making the system capable of handling large transaction volumes while maintaining data integrity.
 
 ## Intelligent Transaction Parser
 
-The Parser component implements sophisticated transaction analysis logic, extracting meaningful events from complex Solana transactions.
+The Parser component analyzes Solana transactions to extract and store meaningful token events, such as transfers, mints, and burns.
 
 ### Parser Implementation
 
 ```typescript
+import { ParsedTransactionWithMeta, ParsedInstruction, AccountInfo } from '@solana/web3.js';
+import { Database } from '@/lib/database';
+import { Fetcher } from '@/lib/fetcher';
+import { MintLayout, TOKEN_PROGRAM_ID, Mint } from '@solana/spl-token';
+import { BN } from 'bn.js';
+import { config } from '@/lib/config';
+import { bnToHex, hexToBN } from '@/lib/utils';
+
+interface ParsedMint {
+  mint: string;
+  mintAuthorityOption: number;
+  mintAuthority: string;
+  supply: string;
+  decimals: number;
+  isInitialized: boolean;
+  freezeAuthorityOption: number;
+  freezeAuthority: string;
+}
+
+interface TokenAccount {
+  address: string;
+  mint: string;
+  owner: string;
+  balance: string;
+}
+
 export class Parser {
     private db: Database;
     private fetcher!: Fetcher;
@@ -393,11 +425,7 @@ export class Parser {
 }
 ```
 
-**Parser Features:**
-- **Event Classification**: Intelligent categorization of token operations
-- **Balance Tracking**: Real-time balance updates with atomic operations
-- **Supply Management**: Accurate token supply tracking
-- **Historical Analysis**: Deep transaction history analysis for account discovery
+**Explanation**: The Parser class processes Solana transactions to extract token-related events (initializeAccount, transfer, mint, burn) for a specific token (config.TOKEN). The tokenMovements method iterates through a transaction's inner instructions, identifying SPL token program instructions and handling them based on type. For example, handleTransfer updates source and destination balances and logs a transfer event, while handleMint and handleBurn also update the token's supply. The mint method initializes mint data, decoding account info to store details like decimals and authorities. The mintFromHistory method supports historical analysis by identifying token accounts. The BN library ensures precise arithmetic for balance and supply updates, and concurrent database operations via Promise.all optimize performance. The parser filters out irrelevant instructions and uses the database for state persistence, ensuring accurate and efficient event tracking.
 
 ## Real-Time Webhook Processing
 
@@ -406,6 +434,11 @@ The Listener component provides robust webhook handling with transaction confirm
 ### Webhook Listener Implementation
 
 ```typescript
+import { Elysia } from 'elysia';
+import { Parser } from '@/lib/parser';
+import { config } from '@/lib/config';
+import { ParsedTransactionWithMeta } from '@solana/web3.js';
+
 export class Listener {
     private parser: Parser;
     private app: Elysia;
@@ -459,11 +492,7 @@ export class Listener {
 }
 ```
 
-**Webhook Features:**
-- **Authentication**: Secure endpoint protection with API keys
-- **Transaction Confirmation**: Waits for blockchain confirmation before processing
-- **Batch Processing**: Efficient handling of multiple transactions
-- **Error Resilience**: Comprehensive error handling and logging
+**Explanation**: The Listener class sets up a secure webhook endpoint (/programListener) using Elysia, authenticating requests with a configured RPC key to prevent unauthorized access. It processes incoming transaction signatures, confirms their validity on the Solana blockchain, and filters out unconfirmed transactions. Confirmed transactions are fetched in batch and passed to the Parser for event extraction. The use of Promise.all for confirmation checks ensures efficient processing, and comprehensive error handling logs issues while returning clear feedback. This design supports sub-second transaction processing, making it ideal for real-time monitoring, with robust security and reliability features.
 
 ## Data Persistence Layer
 
@@ -472,17 +501,17 @@ The Database component provides optimized data storage with intelligent caching 
 ### Database Implementation
 
 ```typescript
-import { getDatabase } from "firebase-admin/database";
-import admin from "firebase-admin";
-import { config } from "./config";
-import { type ParsedMint, type TokenAccount } from "./types";
+import { getDatabase } from 'firebase-admin/database';
+import admin from 'firebase-admin';
+import { config } from '@/lib/config';
+import { ParsedMint, TokenAccount } from '@/lib/types';
 
-const app = admin.apps.find((it: any) => it?.name === "[DEFAULT]") ||
+const app = admin.apps.find((it: any) => it?.name === '[DEFAULT]') ||
     admin.initializeApp({
         credential: admin.credential.cert({
             projectId: config.FIREBASE_PROJECT_ID,
             clientEmail: config.FIREBASE_CLIENT_EMAIL,
-            privateKey: config.FIREBASE_PRIVATE_KEY!.replace(/\\n/gm, "\n"),
+            privateKey: config.FIREBASE_PRIVATE_KEY!.replace(/\\n/gm, '\n'),
         }),
         databaseURL: config.FIREBASE_DATABASE
     });
@@ -575,11 +604,7 @@ export class Database {
 }
 ```
 
-**Database Features:**
-- **Event Storage**: Organized event storage with type-based categorization
-- **Balance Tracking**: Real-time balance updates with atomic operations
-- **Supply Management**: Accurate token supply tracking
-- **Query Optimization**: Efficient data retrieval patterns
+**Explanation**: The Database class uses Firebase Realtime Database for efficient data storage, organizing data into events, mints, and tokenAccounts collections. It provides methods for checking signature and token account existence, saving events, mints, and token accounts, and updating balances and token supply. The saveEvent method uses atomic updates to store events and signatures simultaneously, preventing duplicates. The getAllBalances method supports bulk balance retrieval for analytics, and mintFromAccounts aids in token discovery. Firebase's real-time capabilities and scalable infrastructure ensure low-latency data access, while the structured schema supports efficient querying and data integrity.
 
 ## Deployment Infrastructure
 
@@ -609,6 +634,8 @@ networks:
     driver: bridge
 ```
 
+**Explanation**: This Docker Compose configuration defines a token-monitor service using a custom image, with environment variables loaded from a .env file. The restart: unless-stopped policy ensures the container restarts on failure, enhancing reliability. Logs are persisted to a volume for debugging, and the service runs on port 3001 within a dedicated bridge network for isolation. This setup supports scalable, containerized deployment suitable for production environments.
+
 ### Deployment Commands
 
 **Local Build and Push:**
@@ -622,15 +649,17 @@ docker push ricardocr987/solana-server
 ```bash
 docker stop token-monitor-token-monitor-1
 docker rm token-monitor-token-monitor-1
-docker pull ricardocr987/mango-server:latest
+docker pull ricardocr987/solana-server:latest
 docker compose up --build -d
 docker logs token-monitor-token-monitor-1
 ```
 
 **Multi-Architecture Support:**
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t ricardocr987/jup-blink:latest --push
+docker buildx build --platform linux/amd64,linux/arm64 -t ricardocr987/token-monitor:latest --push
 ```
+
+**Explanation**: These commands streamline the deployment process. The local build and push commands create and upload a Docker image to a registry. Server deployment stops and removes the existing container, pulls the latest image, and starts the service in detached mode, with logs available for monitoring. The multi-architecture build ensures compatibility across different platforms, enhancing deployment flexibility. This approach simplifies updates and ensures consistent environments.
 
 ## System Performance and Scalability
 

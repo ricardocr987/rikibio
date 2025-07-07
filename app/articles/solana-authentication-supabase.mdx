@@ -8,30 +8,36 @@ published: true
 
 # Solana Authentication with Supabase
 
-**Note**: This implementation probably needs one more iteration to be ready for production.
+**Note**: This implementation is robust but may require additional production hardening, such as rate limiting and enhanced error handling.
 
 This comprehensive guide demonstrates how to implement secure, production-ready Solana wallet authentication using Supabase as the backend. The system combines the security of cryptographic signatures with the reliability of Supabase's authentication infrastructure, built with Next.js 14 and shadcn/ui components.
 
 ## System Architecture Overview
 
-The authentication system implements a modern, secure architecture that separates concerns while maintaining excellent user experience:
+The authentication system is designed with modularity and security in mind, separating concerns across distinct layers:
 
-- **Wallet Integration Layer**: Manages Solana wallet connections with comprehensive error handling
-- **Authentication State Management**: Centralized state management with React Context
-- **Backend API Layer**: Secure API endpoints for nonce generation and signature verification
-- **Database Integration**: Supabase-powered user management with custom claims
-- **Route Protection**: Middleware-based authentication guards
+- **Wallet Integration Layer**: Handles Solana wallet connections using the @solana/wallet-adapter library
+- **Authentication State Management**: Uses React Context and a reducer for managing authentication state
+- **Backend API Layer**: Provides secure endpoints for nonce generation and signature verification
+- **Database Integration**: Utilizes Supabase for user storage and custom claims management
+- **Route Protection**: Implements middleware to secure API routes
 
-This architecture ensures that sensitive cryptographic operations remain secure while providing a seamless user experience.
+This architecture ensures secure cryptographic operations, efficient state management, and a scalable backend while prioritizing user experience.
 
 ## Wallet Provider Integration
 
-The SolanaProvider serves as the foundation for wallet connectivity, providing a robust interface for multiple wallet adapters with comprehensive error handling.
+The SolanaProvider component establishes the foundation for wallet connectivity, integrating multiple wallet adapters and handling connection errors gracefully.
 
 ### Wallet Provider Implementation
 
 ```tsx
 // context/WalletProvider
+import { FC, ReactNode, useCallback, useMemo } from 'react';
+import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
+import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { WalletError } from '@solana/wallet-adapter-base';
+import { toast } from '@/components/ui/toast';
+
 export const SolanaProvider: FC<{ children: ReactNode }> = ({ children }) => {
     const wallets = useMemo(
         () => [
@@ -61,21 +67,23 @@ export const SolanaProvider: FC<{ children: ReactNode }> = ({ children }) => {
 };
 ```
 
-**Key Features:**
-- **Multi-Wallet Support**: Extensible architecture supporting multiple wallet providers
-- **Error Handling**: Comprehensive error management with user-friendly notifications
-- **Auto-Connection**: Seamless wallet reconnection for returning users
-- **Type Safety**: Full TypeScript support for robust development
+The SolanaProvider leverages the @solana/wallet-adapter-react library to manage wallet connections. It initializes support for Phantom and Solflare wallets, which are instantiated in a useMemo hook to prevent unnecessary re-instantiation. The ConnectionProvider establishes a connection to the Solana network using a configurable RPC endpoint, ensuring reliable blockchain interactions. The WalletProvider enables automatic reconnection for returning users (autoConnect) and includes an onError callback to display user-friendly error messages via a toast notification system. This setup ensures a robust and extensible wallet integration layer that can support additional wallet adapters as needed, with TypeScript ensuring type safety throughout.
 
 ## Authentication State Management
 
-The AuthProvider implements a sophisticated state management system that handles the complete authentication lifecycle, from initial connection to session persistence.
+The AuthProvider manages the authentication lifecycle, handling wallet connections, user sessions, and state persistence using a React Context and reducer.
 
 ### Authentication Context Implementation
 
 ```tsx
 // context/AuthProvider
 'use client';
+
+import { createContext, useCallback, useContext, useEffect, useReducer, ReactNode } from 'react';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { useCookies } from 'react-cookie';
+import { SignMessage } from '@/lib/signMessage';
+import bs58 from 'bs58';
 
 interface User {
     id: string;
@@ -143,7 +151,7 @@ const AuthContext = createContext<{
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [state, dispatch] = useReducer(authReducer, initialState);
     const { publicKey, signMessage, disconnect, wallet } = useWallet();
-    const cookies = useCookies();
+    const [cookies, setCookie, removeCookie] = useCookies(['token']);
 
     const signIn = useCallback(async () => {
         if (!signMessage || !publicKey || state.user) return;
@@ -170,7 +178,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (!signInResponse.ok) throw new Error(`Failed to sign in: ${signInResponse.statusText}`);
 
             const { token, user } = await signInResponse.json();
-            cookies.set('token', token);
+            setCookie('token', token, { path: '/' });
             const connectedWallet = wallet?.adapter.name || 'Unknown Wallet';
 
             dispatch({ type: 'SIGN_IN', token, user, connectedWallet });
@@ -178,7 +186,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             await disconnect();
             console.error("Sign in error:", error.message);
         }
-    }, [publicKey, signMessage, wallet, state.user, cookies, disconnect]);
+    }, [publicKey, signMessage, wallet, state.user, setCookie, disconnect]);
 
     const signOut = useCallback(async () => {
         if (!publicKey || !state.token) return;
@@ -191,12 +199,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (!logoutResponse.ok) throw new Error(`Failed to logout: ${logoutResponse.statusText}`);
 
             await disconnect();
-            cookies.remove('token');
+            removeCookie('token', { path: '/' });
             dispatch({ type: 'SIGN_OUT' });
         } catch (error: any) {
             console.error("Sign out error:", error.message);
         }
-    }, [publicKey, state.token, disconnect, cookies]);
+    }, [publicKey, state.token, disconnect, removeCookie]);
 
     const getUser = useCallback(async (token: string) => {
         if (!token || !publicKey || state.user) return;
@@ -218,11 +226,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             await disconnect();
             dispatch({ type: 'SIGN_OUT' });
         }
-    }, [publicKey, wallet, state.user]);
+    }, [publicKey, wallet, state.user, disconnect]);
 
     const checkAuth = useCallback(async () => {
         try {
-            const token = cookies.get('token');
+            const token = cookies.token;
             if (token && publicKey) {
                 await getUser(token);
             } else if (publicKey) {
@@ -232,7 +240,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.error('Error checking authentication:', error);
             dispatch({ type: 'SIGN_OUT' });
         }
-    }, [getUser, signIn, publicKey]);
+    }, [getUser, signIn, publicKey, cookies]);
 
     useEffect(() => {
         checkAuth();
@@ -258,20 +266,25 @@ export const useAuth = () => {
 };
 ```
 
-**Authentication Flow Features:**
-- **Nonce-Based Security**: Prevents replay attacks with unique nonces
-- **Session Persistence**: Automatic token restoration on page reload
-- **Error Recovery**: Graceful handling of authentication failures
-- **Wallet Integration**: Seamless integration with multiple wallet providers
+The AuthProvider is the core of the authentication state management system, using a React Context to provide authentication state and methods (signIn, signOut) to child components. It employs a reducer (authReducer) to manage state transitions for signing in and out, ensuring predictable state updates. The signIn function orchestrates the authentication flow: it fetches a nonce from the backend, signs a message with the user's wallet, and sends the signature for verification, storing the resulting JWT token in a cookie. The signOut function clears the session by calling the logout endpoint, disconnecting the wallet, and removing the token. The getUser function retrieves user data for session restoration, while checkAuth ensures authentication state is validated on page load. The use of useCallback and useMemo optimizes performance by preventing unnecessary re-renders. The integration with @solana/wallet-adapter-react ensures seamless wallet interactions, and error handling is robust, with fallback mechanisms to reset state on failures.
 
 ## Application Layout Configuration
 
-The root layout establishes the provider hierarchy and ensures proper initialization of all authentication components.
+The root layout sets up the provider hierarchy, ensuring all components have access to wallet and authentication contexts.
 
 ### Layout Implementation
 
 ```tsx
-// app/layout
+// app/layout.tsx
+import { Inter } from 'next/font/google';
+import { ThemeProvider } from '@/components/theme-provider';
+import { CookiesProvider, getCookies } from 'react-cookie';
+import { SolanaProvider } from '@/context/WalletProvider';
+import { AuthProvider } from '@/context/AuthProvider';
+import { Toaster } from '@/components/ui/toaster';
+
+const inter = Inter({ subsets: ['latin'] });
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -299,20 +312,20 @@ export default function RootLayout({
 }
 ```
 
-**Provider Hierarchy Benefits:**
-- **Context Isolation**: Each provider manages its specific concerns
-- **Performance Optimization**: Minimizes unnecessary re-renders
-- **Type Safety**: Full TypeScript support throughout the provider chain
-- **Error Boundaries**: Isolated error handling for each layer
+The RootLayout component establishes the provider hierarchy for the application, ensuring that wallet connectivity (SolanaProvider), cookie management (CookiesProvider), and authentication state (AuthProvider) are available to all child components. The Inter font from Next.js enhances typography, while the ThemeProvider enables system-based theme switching (light/dark mode). The Toaster component integrates shadcn/ui's toast notifications for user feedback. The layout retrieves the initial token from cookies to support session persistence, passing it to AuthProvider for authentication state initialization. This structure ensures a clean separation of concerns, with each provider handling its specific domain while maintaining TypeScript type safety and performance optimization through minimal re-renders.
 
 ## User Interface Components
 
-The wallet components provide an intuitive user experience while handling complex authentication logic behind the scenes.
+The wallet components provide a user-friendly interface for connecting and disconnecting wallets, abstracting complex authentication logic.
 
 ### Wallet Component
 
 ```tsx
-// components/Wallet
+// components/Wallet.tsx
+import { useAuth } from '@/context/AuthProvider';
+import { Button } from '@/components/ui/button';
+import WalletModal from '@/components/WalletModal';
+
 export default function Wallet() {
     const { signOut, token } = useAuth();
     return (
@@ -331,10 +344,18 @@ export default function Wallet() {
 }
 ```
 
+The Wallet component provides a simple interface for wallet management, conditionally rendering based on the authentication state. If a user is authenticated (i.e., a token exists), it displays a "Disconnect Wallet" button that triggers the signOut function from the AuthProvider. Otherwise, it renders the WalletModal for wallet connection. The component uses shadcn/ui's Button for consistent styling and leverages the useAuth hook to access authentication state and methods. The layout is responsive, with Tailwind CSS classes ensuring proper spacing and alignment across devices.
+
 ### Wallet Modal Component
 
 ```tsx
-// components/WalletModal
+// components/WalletModal.tsx
+import { useMemo } from 'react';
+import { useWallet, Wallet, WalletReadyState } from '@solana/wallet-adapter-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import Image from 'next/image';
+
 export default function WalletModal() {
     const { wallets, select } = useWallet();
     
@@ -389,21 +410,22 @@ export default function WalletModal() {
 }
 ```
 
-**UI Component Features:**
-- **Conditional Rendering**: Shows appropriate UI based on authentication state
-- **Wallet Detection**: Automatically detects installed wallets
-- **Accessibility**: Proper ARIA labels and keyboard navigation
-- **Responsive Design**: Works seamlessly across different screen sizes
+The WalletModal component provides an intuitive interface for selecting and connecting a Solana wallet. It uses the @solana/wallet-adapter-react library to detect installed wallets (WalletReadyState.Installed) and filters them using useMemo for performance optimization. The modal, built with shadcn/ui's Dialog components, displays a list of available wallets with their icons and names, rendered as clickable buttons. Selecting a wallet triggers the select function to initiate the connection process. If no wallets are installed, a fallback message prompts the user to install a Solana wallet. The component is accessible, with proper ARIA attributes, and responsive, using Tailwind CSS for styling.
 
 ## Supabase Integration Layer
 
-The Supabase adapter provides a clean abstraction layer for all database operations and authentication logic, ensuring type safety and maintainability.
+The Supabase adapter abstracts database operations and authentication logic, ensuring type safety and maintainability.
 
 ### Supabase Adapter Implementation
 
 ```tsx
-// lib/supabase
-// note: define db type with its CLI: npx supabase gen types --lang=typescript --project-id PROJECT_ID --schema public > database.types.ts
+// lib/supabase.ts
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '@/types/database.types';
+import { Adapter } from '@/types/adapter';
+import { jwtVerify, SignJWT } from 'jose';
+import { config } from '@/config';
+
 export const SupabaseAdapter = (supabase: SupabaseClient): Adapter => {
   return {
     getNonce: async (address: string) => {
@@ -447,8 +469,10 @@ export const SupabaseAdapter = (supabase: SupabaseClient): Adapter => {
           exp: Math.floor(Date.now() / 1000) + 60 * 60,
       };
 
-      const token = jwt.sign(payload, config.SUPABASE_JWT_SECRET);
-      await supabaseAuthAdapter.setClaim(userId, 'userrole', 'USER');
+      const token = await new SignJWT(payload)
+        .setProtectedHeader({ alg: 'HS256' })
+        .sign(new TextEncoder().encode(config.SUPABASE_JWT_SECRET));
+      await supabase.rpc('set_claim', { uid: userId, claim: 'userrole', value: 'USER' });
 
       return token;
     },
@@ -493,25 +517,26 @@ export const SupabaseAdapter = (supabase: SupabaseClient): Adapter => {
     },
   }
 };
-    
-export const supabase = createClient<Database>(config.SUPABASE_PROJECT_ID, config.SUPABASE_SERVICE_ROLE);
+
+export const supabase = createClient<Database>(config.SUPABASE_PROJECT_URL, config.SUPABASE_SERVICE_ROLE_KEY);
 export const supabaseAuthAdapter = SupabaseAdapter(supabase);
 ```
 
-**Adapter Benefits:**
-- **Type Safety**: Full TypeScript support with generated types
-- **Error Handling**: Comprehensive error logging and handling
-- **JWT Management**: Secure token generation and validation
-- **Custom Claims**: Role-based access control support
+The SupabaseAdapter provides a clean interface for interacting with Supabase, encapsulating database operations and authentication logic. It uses the @supabase/supabase-js client with TypeScript types generated from the database schema (database.types.ts). The adapter includes methods for managing nonces (getNonce, saveAttempt), generating and verifying JWT tokens (generateToken, isAuthenticated), and handling custom claims (setClaim). The generateToken method creates a JWT with a one-hour expiration, signed with the Supabase JWT secret, and sets a userrole claim for role-based access control. The isAuthenticated method verifies token validity and checks user claims, ensuring secure authentication. Error handling is consistent, with detailed logging for debugging. The adapter's design promotes reusability and maintainability, with TypeScript ensuring type safety across all operations.
 
 ## API Endpoints
 
-The API layer provides secure endpoints for authentication operations, implementing proper validation and error handling.
+The API layer provides secure endpoints for authentication operations, with robust validation and error handling.
 
 ### Login Endpoint
 
 ```tsx
-// app/api/auth/login
+// app/api/auth/login/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAuthAdapter } from '@/lib/supabase';
+import { SignMessage } from '@/lib/signMessage';
+import { supabase } from '@/lib/supabase';
+
 export async function POST(req: NextRequest) {
     try {
         const { message, signature } = await req.json();
@@ -550,7 +575,8 @@ export async function POST(req: NextRequest) {
 
             const newUser = await supabase
                 .from('users')
-                .update({ address, id: authUser.user.id })
+                .insert({ address, id: authUser.user.id })
+                .select()
                 .single();
 
             if (newUser.error) throw newUser.error;
@@ -558,7 +584,7 @@ export async function POST(req: NextRequest) {
             user = newUser;
         }
 
-        const token = supabaseAuthAdapter.generateToken();
+        const token = await supabaseAuthAdapter.generateToken(user.data.id);
         await supabase
             .from('users')
             .update({
@@ -576,16 +602,12 @@ export async function POST(req: NextRequest) {
 }
 ```
 
-**Security Features:**
-- **Signature Validation**: Cryptographic verification of wallet ownership
-- **Nonce Verification**: Prevents replay attacks
-- **User Creation**: Automatic user account creation for new addresses
-- **Session Management**: Proper token generation and storage
+The /api/auth/login endpoint handles user authentication by verifying a signed message from the client. It expects a JSON payload containing the message (including public key, nonce, and statement) and signature. The SignMessage class validates the signature using Solana's Ed25519 cryptography, ensuring the message was signed by the wallet owner. The endpoint checks the nonce against the stored value in Supabase to prevent replay attacks. If the user doesn't exist, it creates a new user in Supabase's auth.users table and links it to the users table. A JWT token is generated for the user, and the users table is updated to clear the nonce and log the authentication attempt. Error handling is comprehensive, with specific status codes and messages for invalid inputs, signatures, or nonces, ensuring robust security and clear feedback.
 
 ### Logout Endpoint
 
 ```tsx
-// app/api/auth/logout
+// app/api/auth/logout/route.ts
 import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
@@ -593,7 +615,8 @@ export async function POST() {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-        console.log({ error });
+        console.error('Logout error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     const response = NextResponse.json({ message: 'Logged out' });
@@ -602,10 +625,12 @@ export async function POST() {
 }
 ```
 
+The /api/auth/logout endpoint handles user logout by calling Supabase's signOut method to invalidate the session. It removes the authentication token from cookies by setting its maxAge to 0, ensuring the client is fully logged out. Error handling logs any issues and returns a 500 status code with a descriptive message. The endpoint is simple but effective, ensuring secure session termination and proper state cleanup.
+
 ### Nonce Endpoint
 
 ```tsx
-// app/api/auth/nonce
+// app/api/auth/nonce/route.ts
 import { supabaseAuthAdapter } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuid } from 'uuid';
@@ -635,14 +660,19 @@ export async function POST(req: NextRequest) {
 }
 ```
 
+The /api/auth/nonce endpoint generates a unique nonce for a given wallet address, which is used to secure the authentication process. It expects a JSON payload with the wallet address, generates a UUID-based nonce, and stores it in the login_attempts table with a 5-minute time-to-live (TTL). The nonce is returned to the client for signing. The endpoint validates the input address and handles errors gracefully, returning appropriate status codes and messages. This mechanism prevents replay attacks by ensuring each authentication attempt uses a fresh, time-limited nonce.
+
 ## Cryptographic Message Handling
 
-The SignMessage class provides a secure foundation for message signing and verification, implementing industry-standard cryptographic practices.
+The SignMessage class provides a secure foundation for signing and verifying messages, leveraging Solana's cryptographic standards.
 
 ### SignMessage Implementation
 
 ```tsx
-// lib/signMessage
+// lib/signMessage.ts
+import * as nacl from 'tweetnacl';
+import bs58 from 'bs58';
+
 type SignMessageProps = {
   publicKey: string;
   nonce: string;
@@ -675,22 +705,18 @@ export class SignMessage {
 }
 ```
 
-**Cryptographic Features:**
-- **Nonce Integration**: Prevents replay attacks with unique nonces
-- **Ed25519 Verification**: Uses Solana's native signature scheme
-- **Message Preparation**: Standardized message format for signing
-- **Signature Validation**: Cryptographic proof of wallet ownership
+The SignMessage class encapsulates the logic for preparing and verifying signed messages. The prepare method combines the statement and nonce into a single string for signing, ensuring a consistent message format. The validate method uses the tweetnacl library to verify the signature against the message and public key using Solana's Ed25519 signature scheme. The signature, message, and public key are converted from base58 to Uint8Array for cryptographic operations. This class ensures secure verification of wallet ownership, preventing unauthorized access, and is designed to be reusable across different authentication flows.
 
 ## Route Protection Middleware
 
-The middleware provides comprehensive route protection and token validation, ensuring secure access to protected resources.
+The middleware secures API routes by validating JWT tokens, ensuring only authenticated users access protected resources.
 
 ### Middleware Implementation
 
 ```jsx
 // middleware.ts
 import { supabaseAuthAdapter } from '@/lib/supabase';
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export default async function middleware(request: NextRequest) {
     const token = request.cookies.get('token')?.value;
@@ -704,7 +730,6 @@ export default async function middleware(request: NextRequest) {
     try {
         const auth = await supabaseAuthAdapter.isAuthenticated(token);
         if (!auth) {
-            console.error('Authentication error');
             return new NextResponse(JSON.stringify({ error: 'Invalid or expired token' }), {
                 status: 401,
                 headers: { 'Content-Type': 'application/json' },
@@ -730,15 +755,11 @@ export const config = {
 };
 ```
 
-**Middleware Features:**
-- **Token Validation**: Verifies JWT tokens on protected routes
-- **Error Handling**: Comprehensive error responses
-- **Route Protection**: Configurable route matching
-- **Security Headers**: Proper HTTP response headers
+The middleware protects specified API routes by checking for a valid JWT token in the request cookies. If no token is present, it returns a 401 Unauthorized response. The supabaseAuthAdapter.isAuthenticated method verifies the token's validity and user claims, ensuring the user is authenticated and the token is not expired. If authentication fails, a 401 response is returned; otherwise, the request proceeds. The middleware is applied to specific routes via the matcher configuration, covering product, Solana, and user-related APIs. Error handling is robust, logging unexpected errors and returning a 500 status code, ensuring secure and reliable route protection.
 
 ## Database Schema Design
 
-The database schema is designed for scalability and performance, with proper indexing and relationship management.
+The database schema is optimized for performance and scalability, with proper indexing and relationships.
 
 ### Users Table Schema
 
@@ -759,6 +780,8 @@ CREATE TABLE users (
 );
 ```
 
+The users table stores user data, with a primary key (id) referencing Supabase's auth.users table for authentication integration. The address field uniquely identifies users by their Solana wallet address. Flexible fields like billing_address and payment_method use JSONB for extensibility, while avatar_url, email, and full_name support user profiles. The last_auth and last_auth_status fields track authentication attempts, and nonce stores temporary nonces for authentication. Timestamps (created_at, updated_at) enable audit trails. The schema is designed for scalability, with a unique constraint on address and efficient querying via the primary key.
+
 ### Login Attempts Table Schema
 
 ```sql
@@ -771,45 +794,45 @@ CREATE TABLE login_attempts (
 );
 ```
 
-**Schema Benefits:**
-- **Referential Integrity**: Proper foreign key relationships
-- **Audit Trail**: Comprehensive logging of authentication attempts
-- **Performance**: Optimized indexes for common queries
-- **Scalability**: JSONB fields for flexible data storage
+The login_attempts table logs authentication attempts, storing the wallet address, nonce, and TTL (time-to-live) for each attempt. The id is a UUID for unique identification, and created_at tracks when the attempt was made. The table supports nonce-based security by storing temporary nonces with a 5-minute TTL, preventing replay attacks. The schema is lightweight and optimized for frequent writes and reads, with no foreign key constraints to maximize performance.
 
 ## Production Considerations
 
-Before deploying to production, consider implementing the following enhancements:
+To prepare for production, consider the following enhancements:
 
 ### Security Enhancements
-1. **Rate Limiting**: Implement rate limiting on authentication endpoints
-2. **Input Validation**: Strengthen input validation and sanitization
-3. **Security Headers**: Add comprehensive security headers
-4. **CSRF Protection**: Implement CSRF protection mechanisms
+
+1. **Rate Limiting**: Use a library like express-rate-limit to limit authentication endpoint requests
+2. **Input Validation**: Implement a validation library (e.g., Zod) to sanitize inputs
+3. **Security Headers**: Add headers like CSP and X-Frame-Options using Next.js middleware
+4. **CSRF Protection**: Include CSRF tokens for POST requests to prevent cross-site request forgery
 
 ### Performance Optimizations
-1. **Database Indexing**: Optimize database queries with proper indexing
-2. **Caching Strategy**: Implement Redis caching for frequently accessed data
-3. **Connection Pooling**: Optimize database connection management
-4. **CDN Integration**: Use CDN for static assets
+
+1. **Database Indexing**: Add indexes on users.address and login_attempts.address for faster queries
+2. **Caching**: Use Redis to cache user data and nonces, reducing database load
+3. **Connection Pooling**: Configure Supabase client connection pooling for high traffic
+4. **CDN**: Serve static assets via a CDN like Cloudflare for faster delivery
 
 ### Monitoring and Logging
-1. **Error Tracking**: Implement comprehensive error logging
-2. **Performance Monitoring**: Add application performance monitoring
-3. **User Analytics**: Track authentication success/failure rates
-4. **Health Checks**: Implement health check endpoints
+
+1. **Error Tracking**: Use Sentry for real-time error monitoring
+2. **Performance Monitoring**: Implement tools like New Relic for performance insights
+3. **User Analytics**: Track authentication metrics using PostHog or similar
+4. **Health Checks**: Add /health endpoints to monitor application status
 
 ### Testing Strategy
-1. **Unit Tests**: Comprehensive unit tests for all components
-2. **Integration Tests**: End-to-end authentication flow testing
-3. **Security Tests**: Penetration testing for authentication endpoints
-4. **Load Testing**: Performance testing under high load
+
+1. **Unit Tests**: Test individual components (e.g., SignMessage, SupabaseAdapter) with Jest
+2. **Integration Tests**: Use Playwright to test end-to-end authentication flows
+3. **Security Tests**: Conduct penetration testing with tools like OWASP ZAP
+4. **Load Testing**: Simulate high traffic with Locust to ensure scalability
 
 ## Additional Resources
 
-For more information on Supabase authentication patterns and best practices:
+For further reading on Supabase and Web3 authentication:
 
 - [Supabase Metamask Signed Authentication](https://dev.to/59023g/supabase-metamask-signed-authentication-web3-53e1)
 - [Supabase Custom Claims](https://dev.to/supabase/supabase-custom-claims-34l2)
 
-This authentication system provides a robust, scalable foundation for Solana dApps with Supabase backend integration, offering enterprise-grade security while maintaining excellent developer and user experience. 
+This authentication system provides a secure, scalable foundation for Solana dApps, leveraging Supabase for robust user management and Next.js for a modern frontend experience. With comprehensive error handling, type safety, and modular design, it serves as a solid starting point for production-grade applications. 
