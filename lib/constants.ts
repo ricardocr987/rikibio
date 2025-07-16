@@ -41,7 +41,7 @@ export const [PAYMENT_REFERENCE] = PublicKey.findProgramAddressSync(
   SystemProgram.programId,
 );
 export const RIKI_PUBKEY = new PublicKey(
-  "7PVikdh8e1mTjdZT4ooEYAZGR9McPRkdRjf1tkxxdyRp",
+  "ALqGNRKiToidaetTTh75SJ3AUCVBCA9hKZzLHGU7LpB9",
 );
 export const [USDC_TOKEN_ACCOUNT] = PublicKey.findProgramAddressSync(
   [
