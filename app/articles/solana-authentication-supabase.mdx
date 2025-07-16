@@ -10,7 +10,7 @@ published: true
 
 **Note**: This implementation is robust but may require additional production hardening, such as rate limiting and enhanced error handling.
 
-This comprehensive guide demonstrates how to implement secure, production-ready Solana wallet authentication using Supabase as the backend. The system combines the security of cryptographic signatures with the reliability of Supabase's authentication infrastructure, built with Next.js 14 and shadcn/ui components.
+This comprehensive guide demonstrates how to implement Solana wallet authentication using Supabase on the backend. The system combines the security of cryptographic signatures with the reliability of Supabase's authentication infrastructure, built with Next.js 14 and shadcn/ui components.
 
 ## System Architecture Overview
 
@@ -27,8 +27,6 @@ This architecture ensures secure cryptographic operations, efficient state manag
 ## Wallet Provider Integration
 
 The SolanaProvider component establishes the foundation for wallet connectivity, integrating multiple wallet adapters and handling connection errors gracefully.
-
-### Wallet Provider Implementation
 
 ```tsx
 // context/WalletProvider
@@ -67,13 +65,11 @@ export const SolanaProvider: FC<{ children: ReactNode }> = ({ children }) => {
 };
 ```
 
-The SolanaProvider leverages the @solana/wallet-adapter-react library to manage wallet connections. It initializes support for Phantom and Solflare wallets, which are instantiated in a useMemo hook to prevent unnecessary re-instantiation. The ConnectionProvider establishes a connection to the Solana network using a configurable RPC endpoint, ensuring reliable blockchain interactions. The WalletProvider enables automatic reconnection for returning users (autoConnect) and includes an onError callback to display user-friendly error messages via a toast notification system. This setup ensures a robust and extensible wallet integration layer that can support additional wallet adapters as needed, with TypeScript ensuring type safety throughout.
+The SolanaProvider leverages the @solana/wallet-adapter-react library to manage wallet connections. It initializes support for Phantom and Solflare wallets, which are instantiated in a useMemo hook to prevent unnecessary re-instantiation. The ConnectionProvider establishes a connection to the Solana network using a configurable RPC endpoint, ensuring reliable blockchain interactions. The WalletProvider enables automatic reconnection for returning users (autoConnect) and includes an onError callback to display user-friendly error messages via a toast notification system.
 
 ## Authentication State Management
 
 The AuthProvider manages the authentication lifecycle, handling wallet connections, user sessions, and state persistence using a React Context and reducer.
-
-### Authentication Context Implementation
 
 ```tsx
 // context/AuthProvider
@@ -266,13 +262,11 @@ export const useAuth = () => {
 };
 ```
 
-The AuthProvider is the core of the authentication state management system, using a React Context to provide authentication state and methods (signIn, signOut) to child components. It employs a reducer (authReducer) to manage state transitions for signing in and out, ensuring predictable state updates. The signIn function orchestrates the authentication flow: it fetches a nonce from the backend, signs a message with the user's wallet, and sends the signature for verification, storing the resulting JWT token in a cookie. The signOut function clears the session by calling the logout endpoint, disconnecting the wallet, and removing the token. The getUser function retrieves user data for session restoration, while checkAuth ensures authentication state is validated on page load. The use of useCallback and useMemo optimizes performance by preventing unnecessary re-renders. The integration with @solana/wallet-adapter-react ensures seamless wallet interactions, and error handling is robust, with fallback mechanisms to reset state on failures.
+The AuthProvider is the core of the authentication state management system, using a React Context to provide authentication state and methods (signIn, signOut) to child components. It employs a reducer (authReducer) to manage state transitions for signing in and out, ensuring predictable state updates. The signIn function orchestrates the authentication flow: it fetches a nonce from the backend, signs a message with the user's wallet, and sends the signature for verification, storing the resulting JWT token in a cookie. The signOut function clears the session by calling the logout endpoint, disconnecting the wallet, and removing the token. The getUser function retrieves user data for session restoration, while checkAuth ensures authentication state is validated on page load. The use of useCallback and useMemo optimizes performance by preventing unnecessary re-renders.
 
 ## Application Layout Configuration
 
 The root layout sets up the provider hierarchy, ensuring all components have access to wallet and authentication contexts.
-
-### Layout Implementation
 
 ```tsx
 // app/layout.tsx
@@ -312,13 +306,11 @@ export default function RootLayout({
 }
 ```
 
-The RootLayout component establishes the provider hierarchy for the application, ensuring that wallet connectivity (SolanaProvider), cookie management (CookiesProvider), and authentication state (AuthProvider) are available to all child components. The Inter font from Next.js enhances typography, while the ThemeProvider enables system-based theme switching (light/dark mode). The Toaster component integrates shadcn/ui's toast notifications for user feedback. The layout retrieves the initial token from cookies to support session persistence, passing it to AuthProvider for authentication state initialization. This structure ensures a clean separation of concerns, with each provider handling its specific domain while maintaining TypeScript type safety and performance optimization through minimal re-renders.
+The RootLayout component establishes the provider hierarchy for the application, ensuring that wallet connectivity (SolanaProvider), cookie management (CookiesProvider), and authentication state (AuthProvider) are available to all child components. The Inter font from Next.js enhances typography, while the ThemeProvider enables system-based theme switching (light/dark mode). The Toaster component integrates shadcn/ui's toast notifications for user feedback. The layout retrieves the initial token from cookies to support session persistence, passing it to AuthProvider for authentication state initialization.
 
 ## User Interface Components
 
 The wallet components provide a user-friendly interface for connecting and disconnecting wallets, abstracting complex authentication logic.
-
-### Wallet Component
 
 ```tsx
 // components/Wallet.tsx
@@ -666,8 +658,6 @@ The /api/auth/nonce endpoint generates a unique nonce for a given wallet address
 
 The SignMessage class provides a secure foundation for signing and verifying messages, leveraging Solana's cryptographic standards.
 
-### SignMessage Implementation
-
 ```tsx
 // lib/signMessage.ts
 import * as nacl from 'tweetnacl';
@@ -710,8 +700,6 @@ The SignMessage class encapsulates the logic for preparing and verifying signed 
 ## Route Protection Middleware
 
 The middleware secures API routes by validating JWT tokens, ensuring only authenticated users access protected resources.
-
-### Middleware Implementation
 
 ```jsx
 // middleware.ts
@@ -820,13 +808,6 @@ To prepare for production, consider the following enhancements:
 2. **Performance Monitoring**: Implement tools like New Relic for performance insights
 3. **User Analytics**: Track authentication metrics using PostHog or similar
 4. **Health Checks**: Add /health endpoints to monitor application status
-
-### Testing Strategy
-
-1. **Unit Tests**: Test individual components (e.g., SignMessage, SupabaseAdapter) with Jest
-2. **Integration Tests**: Use Playwright to test end-to-end authentication flows
-3. **Security Tests**: Conduct penetration testing with tools like OWASP ZAP
-4. **Load Testing**: Simulate high traffic with Locust to ensure scalability
 
 ## Additional Resources
 

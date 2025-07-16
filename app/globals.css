@@ -161,3 +161,131 @@
 .token-number { color: #B5CEA8; }
 .token-function { color: #DCDCAA; }
 .token-comment { color: #6A9955; font-style: italic; }
+
+/* --- Article-specific styles --- */
+.article-content {
+  line-height: 1.7;
+}
+
+.article-content h1,
+.article-content h2,
+.article-content h3 {
+  scroll-margin-top: 1.5rem;
+}
+
+.article-content h2 {
+  position: relative;
+  padding-top: 1.5rem;
+  margin-top: 2rem;
+}
+
+.article-content h2:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+/* Production Considerations section styling */
+.article-content h2:contains("Production Considerations"),
+.article-content h2:contains("Security Enhancements"),
+.article-content h2:contains("Performance Optimizations"),
+.article-content h2:contains("Monitoring and Logging"),
+.article-content h2:contains("Testing Strategy") {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border-left: 4px solid #3b82f6;
+  margin: 1.5rem 0;
+}
+
+.dark .article-content h2:contains("Production Considerations"),
+.dark .article-content h2:contains("Security Enhancements"),
+.dark .article-content h2:contains("Performance Optimizations"),
+.dark .article-content h2:contains("Monitoring and Logging"),
+.dark .article-content h2:contains("Testing Strategy") {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-left-color: #60a5fa;
+}
+
+/* Enhanced list styling */
+.article-content ul,
+.article-content ol {
+  margin: 1rem 0;
+  padding-left: 1.25rem;
+}
+
+.article-content li {
+  margin: 0.5rem 0;
+  line-height: 1.6;
+}
+
+.article-content li::marker {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+/* Enhanced blockquote styling */
+.article-content blockquote {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-left: 4px solid #3b82f6;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin: 1.5rem 0;
+  font-style: italic;
+}
+
+.dark .article-content blockquote {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-left-color: #60a5fa;
+}
+
+/* Enhanced paragraph spacing */
+.article-content p {
+  margin: 1rem 0;
+  line-height: 1.7;
+}
+
+/* Enhanced link styling */
+.article-content a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: all 0.2s ease;
+}
+
+.article-content a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* Copy button styling */
+.copy-btn {
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.copy-btn:hover {
+  transform: scale(1.05);
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .article-content h1 {
+    font-size: 1.75rem;
+  }
+  
+  .article-content h2 {
+    font-size: 1.5rem;
+  }
+  
+  .article-content h3 {
+    font-size: 1.25rem;
+  }
+  
+  .vscode-codeblock {
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+  }
+  
+  .code-block pre {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+}

@@ -56,25 +56,35 @@ function markdownToHtml(markdown: string): string {
   });
 
   // Inline code
-  html = html.replace(/`([^`]+)`/g, '<code class="bg-gray-200 text-gray-900 px-1 py-0.5 rounded text-sm font-mono">$1</code>');
+  html = html.replace(/`([^`]+)`/g, '<code class="bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-1 py-0.5 rounded text-sm font-mono">$1</code>');
 
-  // Headers
-  html = html.replace(/^### (.*$)/gim, '<h3 class="text-xl font-semibold mt-6 mb-3">$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-semibold mt-8 mb-4">$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold mt-8 mb-4">$1</h1>');
+  // Headers with better spacing
+  html = html.replace(/^### (.*$)/gim, '<h3 class="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-semibold mt-10 mb-6 text-gray-900 dark:text-white">$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold mt-10 mb-6 text-gray-900 dark:text-white">$1</h1>');
 
   // Bold and italic
-  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-white">$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em class="italic text-gray-700 dark:text-gray-300">$1</em>');
 
   // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium underline" target="_blank" rel="noopener noreferrer">$1</a>');
 
-  // Lists
-  html = html.replace(/^\* (.*$)/gim, '<li class="ml-4">$1</li>')
-    .replace(/^- (.*$)/gim, '<li class="ml-4">$1</li>');
+  // Lists with better spacing
+  html = html.replace(/^\* (.*$)/gim, '<li class="ml-4 my-1 text-gray-700 dark:text-gray-300">$1</li>')
+    .replace(/^- (.*$)/gim, '<li class="ml-4 my-1 text-gray-700 dark:text-gray-300">$1</li>');
   // Wrap consecutive <li> in <ul>
-  html = html.replace(/(<li[\s\S]*?<\/li>)/g, '<ul class="list-disc my-4">$1</ul>');
+  html = html.replace(/(<li[\s\S]*?<\/li>)/g, '<ul class="list-disc my-4 space-y-1">$1</ul>');
+
+  // Numbered lists
+  html = html.replace(/^\d+\. (.*$)/gim, '<li class="ml-4 my-1 text-gray-700 dark:text-gray-300">$1</li>');
+  html = html.replace(/(<li[\s\S]*?<\/li>)/g, '<ol class="list-decimal my-4 space-y-1">$1</ol>');
+
+  // Blockquotes
+  html = html.replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-blue-500 pl-4 my-6 italic text-gray-700 dark:text-gray-300">$1</blockquote>');
+
+  // Horizontal rules
+  html = html.replace(/^---$/gim, '<hr class="my-8 border-gray-300 dark:border-gray-600">');
 
   // Paragraphs: only wrap lines not already in block tags and not inside code blocks
   // Split by \n, but skip lines that are inside <div class="vscode-codeblock ..."> ... </div>
@@ -86,16 +96,44 @@ function markdownToHtml(markdown: string): string {
       return line;
     }
     if (
-      /^\s*<\/?(h[1-6]|ul|li|pre|code|blockquote|p|img|table|thead|tbody|tr|th|td|a|strong|em|div|button)/.test(line.trim()) ||
+      /^\s*<\/?(h[1-6]|ul|ol|li|pre|code|blockquote|p|img|table|thead|tbody|tr|th|td|a|strong|em|div|button|hr)/.test(line.trim()) ||
       line.trim() === ''
     ) {
       return line;
     }
-    return `<p class="my-4">${line}</p>`;
+    return `<p class="my-4 text-gray-700 dark:text-gray-300 leading-relaxed">${line}</p>`;
   }).join('\n');
 
   // Remove empty paragraphs
-  html = html.replace(/<p class="my-4">\s*<\/p>/g, '');
+  html = html.replace(/<p class="my-4 text-gray-700 dark:text-gray-300 leading-relaxed">\s*<\/p>/g, '');
+
+  // Add extra spacing around sections
+  html = html.replace(/<h2/g, '<div class="mt-10 pt-6 border-t border-gray-200 dark:border-gray-700"><h2');
+  html = html.replace(/<\/h2>/g, '</h2></div>');
+
+  // Special styling for Production Considerations section
+  html = html.replace(
+    /<h2[^>]*>Production Considerations<\/h2>/g,
+    '<h2 class="text-2xl font-semibold mt-10 mb-6 text-gray-900 dark:text-white bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-3 rounded-lg border-l-4 border-blue-500">Production Considerations</h2>'
+  );
+
+  // Special styling for subsections within Production Considerations
+  html = html.replace(
+    /<h3[^>]*>Security Enhancements<\/h3>/g,
+    '<h3 class="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white bg-blue-50 dark:bg-blue-900/20 p-2 rounded border-l-4 border-green-500">Security Enhancements</h3>'
+  );
+  html = html.replace(
+    /<h3[^>]*>Performance Optimizations<\/h3>/g,
+    '<h3 class="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white bg-blue-50 dark:bg-blue-900/20 p-2 rounded border-l-4 border-yellow-500">Performance Optimizations</h3>'
+  );
+  html = html.replace(
+    /<h3[^>]*>Monitoring and Logging<\/h3>/g,
+    '<h3 class="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white bg-blue-50 dark:bg-blue-900/20 p-2 rounded border-l-4 border-purple-500">Monitoring and Logging</h3>'
+  );
+  html = html.replace(
+    /<h3[^>]*>Testing Strategy<\/h3>/g,
+    '<h3 class="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white bg-blue-50 dark:bg-blue-900/20 p-2 rounded border-l-4 border-pink-500">Testing Strategy</h3>'
+  );
 
   return html;
 }
