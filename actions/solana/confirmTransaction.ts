@@ -123,16 +123,21 @@ export async function sendTransaction(transaction: string, data: string) {
   }
 }
 
-async function fetchTransaction(signature: string) {
+async function fetchTransaction(signature: string, retryCount: number = 0) {
+  const maxRetries = 3;
   const retryDelay = 400;
+  
   const response = await config.SOL_RPC.getTransaction(signature, {
     commitment: "confirmed",
     maxSupportedTransactionVersion: 0,
   });
+  
   if (response) {
     return response;
-  } else {
+  } else if (retryCount < maxRetries) {
     await new Promise((resolve) => setTimeout(resolve, retryDelay));
-    return fetchTransaction(signature);
+    return fetchTransaction(signature, retryCount + 1);
+  } else {
+    throw new Error(`Failed to fetch transaction after ${maxRetries} retries`);
   }
 }
