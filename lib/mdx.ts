@@ -50,7 +50,7 @@ function markdownToHtml(markdown: string): string {
 
     // Remove all newlines at the start and end, but keep internal newlines
     return `<div class="vscode-codeblock not-prose code-block-wrapper relative my-12">
-        <button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded border border-[#23232b] text-gray-200 font-mono" data-code="${encodeURIComponent(code)}">Copy</button>
+        <button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded border border-[#23232b] text-gray-200 font-mono" data-code="${btoa(code)}">Copy</button>
         <pre class="code-block bg-[#18181b] text-[#d4d4d4] font-mono text-sm p-4 rounded-lg overflow-x-auto border border-[#23232b]" style="white-space:pre; margin:0;"><code>${escaped}</code></pre>
       </div>`;
   });

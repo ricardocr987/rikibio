@@ -6,7 +6,7 @@ export function ArticleHtmlClient({ html }: { html: string }) {
     const handler = (e: Event) => {
       const target = e.target as HTMLElement;
       if (target.classList.contains('copy-btn')) {
-        const code = decodeURIComponent(target.getAttribute('data-code') || '');
+        const code = atob(target.getAttribute('data-code') || '');
         navigator.clipboard.writeText(code);
         target.textContent = 'Copied!';
         setTimeout(() => {
