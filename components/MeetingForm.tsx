@@ -37,6 +37,7 @@ import { confirmSession, createSession } from "@/actions/stripe";
 import { sendTransaction, createTransaction } from "@/actions/solana";
 import { ScrollArea } from "./ui/scroll-area";
 import { Meetings } from "@/app/page";
+import React from "react";
 
 export const MeetingSchema = z.object({
   senderEmail: z.string().email("Invalid email address."),
@@ -55,13 +56,22 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
     resolver: zodResolver(MeetingSchema),
     defaultValues: {
       senderEmail: "",
-      dob: new Date(firstDate),
+      dob: new Date(), // Default to today
       hours: [],
       message: "",
     },
   });
 
   const selectedDate = form.watch("dob");
+  const firstAvailableDate = new Date(firstDate);
+  
+  // If the selected date is before the first available date, update it
+  React.useEffect(() => {
+    if (selectedDate < firstAvailableDate) {
+      form.setValue("dob", firstAvailableDate);
+    }
+  }, [selectedDate, firstAvailableDate, form]);
+
   const filteredHours = filterAvailableHours(selectedDate, meetings);
   function filterAvailableHours(date: Date, meetings: Meetings) {
     const baseHours = ["16:00", "17:00", "18:00", "19:00"];
@@ -217,7 +227,7 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
               name="hours"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Select hours</FormLabel>
+                  <FormLabel>Select hours (CET Timezone)</FormLabel>
                   <FormControl>
                     {filteredHours.length > 0 ? (
                       <ToggleGroup

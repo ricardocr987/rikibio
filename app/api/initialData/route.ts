@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   try {
-    // Get current date and timestamp
+    // Get current date and timestamp in Europe/Madrid timezone
     const today = new Date();
     const currentTimestamp = today.getTime();
 
@@ -25,13 +25,8 @@ export async function GET(req: Request) {
       meetings[day].push(...(data.hours || []));
     });
 
-    // Set vacation end date (first available date after vacation) to July 20th
-    const vacationEndDate = new Date('2025-07-19');
-    vacationEndDate.setHours(0, 0, 0, 0);
-    
-    // Use the later date between today and vacation end date
-    const firstDate = new Date(Math.max(today.getTime(), vacationEndDate.getTime()));
-    console.log(firstDate.toISOString());
+    // Set first available date to tomorrow (or next business day) in Europe/Madrid timezone
+    const firstDate = new Date();
     firstDate.setHours(0, 0, 0, 0);
     firstDate.setDate(firstDate.getDate() + 1);
 
@@ -44,7 +39,6 @@ export async function GET(req: Request) {
       firstDate.setDate(firstDate.getDate() + 1);
     }
 
-    console.log(firstDate.toISOString());
     return NextResponse.json({
       meetings,
       firstDate: firstDate.toISOString(),
