@@ -56,7 +56,7 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
     resolver: zodResolver(MeetingSchema),
     defaultValues: {
       senderEmail: "",
-      dob: new Date(), // Default to today
+      dob: new Date(firstDate), // Default to first available date
       hours: [],
       message: "",
     },
@@ -205,7 +205,7 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
                         mode="single"
                         selected={field.value}
                         onSelect={field.onChange}
-                        defaultMonth={new Date(firstDate)}
+                        defaultMonth={field.value || new Date(firstDate)}
                         fromDate={new Date(firstDate)}
                         disabled={(date) =>
                           date < new Date(firstDate) ||
