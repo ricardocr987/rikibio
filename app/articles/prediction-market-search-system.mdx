@@ -1,0 +1,143 @@
+---
+title: "Multi-Tier Search for Prediction Markets"
+description: "Building a fallback search system combining PostgreSQL full-text search, trigram similarity, and AI semantic matching for a Solana-based prediction market platform"
+date: "2025-10-15"
+tags: ["search", "postgresql", "ai"]
+published: true
+---
+
+# Building a Multi-Tier Search System for Prediction Markets
+
+This article covers the search implementation for a Solana-based prediction market platform, where users can find events across sports, crypto, politics, and esports categories. The system uses a three-tier fallback strategy: PostgreSQL full-text search, trigram fuzzy matching, and AI semantic search, ensuring high recall without sacrificing response times for common queries.
+
+## Database Foundation
+
+The search relies on PostgreSQL's full-text search capabilities. Each event has a `search_vector` column (`tsvector`) that indexes the title and description for efficient text matching. The `pg_trgm` extension enables fuzzy matching via trigram similarity, catching typos and partial inputs that full-text search would miss.
+
+## Search Alias Expansion
+
+Before hitting the database, common abbreviations are expanded into richer search terms. A user searching "nfl" gets results for "american football" and "super bowl" automatically:
+
+```typescript
+export const SEARCH_ALIASES: Record<
+  string,
+  { category?: string; subcategory?: string; expandedTerms?: string[] }
+> = {
+  nfl: {
+    category: "sports",
+    subcategory: "nfl",
+    expandedTerms: ["american football", "super bowl"],
+  },
+  btc: { category: "crypto", expandedTerms: ["bitcoin"] },
+  ucl: {
+    category: "sports",
+    subcategory: "ucl",
+    expandedTerms: ["champions league", "uefa"],
+  },
+  // ...
+};
+```
+
+Each alias also provides category and subcategory filters, narrowing results to relevant event types without extra user input.
+
+## Three-Tier Search Strategy
+
+The system uses a fallback approach where each tier activates only if the previous one returns no results.
+
+### Tier 1: Full-Text Search with Prefix Matching
+
+The primary search uses PostgreSQL's `websearch_to_tsquery` for natural language queries, combined with prefix matching on the last word for type-ahead behavior:
+
+```sql
+SELECT *
+FROM "prediction_events"
+WHERE "isActive" = true
+  AND "provider" = $1
+  AND (
+    "search_vector" @@ websearch_to_tsquery('english', $2)
+    OR "search_vector" @@ to_tsquery('english', $lastWord || ':*')
+  )
+ORDER BY
+  "isLive" DESC,
+  (ts_rank("search_vector", websearch_to_tsquery('english', $2)) * 2
+   + COALESCE(similarity(title, $2), 0)) DESC,
+  "volumeUsd" DESC
+```
+
+Results are ranked by a weighted combination of text relevance and string similarity, with live events always prioritized at the top.
+
+### Tier 2: Trigram Similarity
+
+When full-text search returns nothing (typos, partial matches), the system falls back to fuzzy matching:
+
+```sql
+SELECT *
+FROM "prediction_events"
+WHERE "isActive" = true
+  AND similarity(title, $1) > 0.15
+ORDER BY similarity(title, $1) DESC
+```
+
+The `0.15` threshold balances recall with precision, low enough to catch typos but high enough to filter noise.
+
+### Tier 3: AI Semantic Search
+
+As a last resort, Claude semantically matches the query against all event titles. This handles intent-based queries that don't match keywords literally:
+
+```typescript
+const prompt = `Given the user's search query and a list of available events,
+return the eventIds that best match the user's intent.
+
+User search query: "${searchTerm}"
+
+Available events:
+${eventList}
+
+Return ONLY a JSON array of eventIds...`;
+```
+
+This tier is expensive (API call + fetching all titles), so it only runs when traditional methods fail.
+
+## Putting It Together
+
+The main search method orchestrates all tiers:
+
+```typescript
+async searchEvents({
+  provider,
+  query,
+  limit,
+  anthropicApiKey,
+}): Promise<PredictionEventWithMarkets[]> {
+  const { expandedTerm, category, subcategory } =
+    this.expandSearchWithAliases(query);
+
+  let results = await this.fullTextSearch(
+    provider, expandedTerm, limit, category, subcategory
+  );
+
+  if (results.length === 0) {
+    results = await this.trigramSearch(
+      provider, query, limit, category, subcategory
+    );
+  }
+
+  if (results.length === 0 && anthropicApiKey) {
+    results = await this.aiSemanticSearch(
+      provider, query, limit, anthropicApiKey
+    );
+  }
+
+  return this.injectMarketsIntoEvents(results);
+}
+```
+
+Note that trigram search uses the original query (not the expanded term) since fuzzy matching works better with the user's actual input.
+
+## Tradeoffs
+
+- **Alias maintenance**: The alias map requires manual updates for new terms
+- **AI cost**: Semantic search adds latency and API costs, but only triggers on edge cases
+- **Category filtering**: Aliases lock queries to specific categories, which may exclude relevant cross-category results
+
+The tiered approach ensures fast responses for common queries while maintaining high recall for ambiguous searches.
