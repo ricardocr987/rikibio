@@ -1,0 +1,315 @@
+---
+title: "Recurring USDC Subscriptions on Solana"
+description: "Complete implementation of recurring, on-chain USDC billing using the Solana Subscriptions program (@solana/subscriptions) built on @solana/kit"
+date: "2026-07-22"
+tags: ["solana", "subscriptions", "payments", "web3", "typescript", "kit"]
+published: true
+---
+
+# Building Recurring USDC Subscriptions on Solana
+
+This guide covers how I implemented paid subscriptions for [a small experimental blogging project](https://ownblog.xyz) using the Solana Subscriptions program, `@solana/subscriptions`, built on top of `@solana/kit`. An author publishes a paid tier, a reader subscribes once, and USDC gets pulled every billing period afterward without either side running custom billing infrastructure.
+
+The program is open source at `solana-foundation/subscriptions` on GitHub, program ID on both devnet and mainnet `De1egAFMkMWZSN5rYXRj9CAdheBamobVNubTsi9avR44`.
+
+## What the Subscriptions Program Brings
+
+Most merchants either run their own billing service or have subscribers approve a transfer every period. This program gives each `(user, token mint)` pair a single program-controlled Subscription Authority, set once as the SPL/Token-2022 delegate with `u64::MAX` approval. From there, the authority only moves tokens when a Delegation PDA it owns authorizes it, so multiple merchants can hold their own delegation against the same authority without re-approving anything.
+
+## Account Types
+
+```
+┌─ Plan ───────────────────────┐   ┌─ SubscriptionAuthority ────────┐
+│ PDA (merchant, plan_id)      │   │ PDA (user, token_mint)         │
+│ • amount (price)             │   │ • set once as token delegate   │
+│ • token_mint                 │   │ • u64::MAX approval            │
+│ • period_hours               │   │ • init_id                      │
+│ • end_ts (0 = open-ended)    │   └───────────────┬────────────────┘
+│ • pullers[]                  │                   │ 1
+│ • destinations[]             │                   │ owns
+└───────────────┬──────────────┘                   │ N
+              1 │ delegatee                        │
+              N │                                  │
+  ┌─────────────▼──────────────────────────────────▼────────┐
+  │ SubscriptionDelegation                                  │
+  │ PDA (plan_pda, subscriber)                              │
+  │ • delegator = subscriber wallet                         │
+  │ • delegatee = plan PDA (the getProgramAccounts filter)  │
+  │ • terms (price/period pinned at subscribe)              │
+  │ • expires_at_ts (0 = active, non-zero = cutoff)         │
+  │ • amount_pulled_in_period, current_period_start_ts      │
+  └─────────────────────────────────────────────────────────┘
+```
+
+A Plan is immutable once published, and a delegation's existence *is* the access grant. 
+There's no "is subscribed" boolean anywhere. Access is just "does this PDA exist, and are we before its expiry."
+
+## Chain as the Source of Truth
+
+There's no subscription state stored anywhere off-chain: the paywall reads the delegation PDA live from RPC on every request, and collection enumerates subscribers straight off the chain. Nothing needs to be synced, backfilled, or kept consistent; the program's accounts are the only record.
+
+## Guarantees Enforced by the Program Itself
+
+- **`Plan::can_pull`** - only the owner or an address in `pullers` can trigger `TransferSubscription`; every plan here uses an empty `pullers`.
+- **`Plan::check_destination`** - pulled funds can only land in an account owned by an address in `destinations`, set to just the plan owner.
+- **Per-period pull limits** - the delegation tracks `amount_pulled_in_period` on-chain, so no client-side "already billed this period" bookkeeping is needed.
+- **Period-aligned cancellation** - `expires_at_ts` lands at the end of the current billing period, so a cancelled subscriber keeps access through what they already paid for.
+- **Immutable pricing** - `UpdatePlan` can't touch price or period; repricing means a new plan and sunsetting the old one.
+
+## Subscribing: One Transaction, Two Possible Instructions
+
+```typescript
+// src/hooks/useSubscription.ts
+const subscribe = useCallback(
+  (authorPubkey: string, planId: bigint = DEFAULT_PLAN_ID) =>
+    run(async ({ pubkey, signer }) => {
+      const terms = await fetchPlanTerms(authorPubkey, planId);
+      if (!terms.exists) throw new Error('This author has no active plan');
+
+      const instructions: Instruction[] = [];
+
+      const authority = await fetchAuthorityState(pubkey, USDC_MINT_ADDRESS);
+      if (!authority.initialized) {
+        const userAta = await getAta(pubkey, USDC_MINT_ADDRESS);
+        instructions.push(
+          await getInitSubscriptionAuthorityOverlayInstructionAsync({
+            programAddress: PROGRAM_ADDRESS,
+            owner: signer,
+            tokenMint: USDC_MINT_ADDRESS,
+            tokenProgram: TOKEN_PROGRAM,
+            userAta,
+          }),
+        );
+      }
+
+      instructions.push(
+        await getSubscribeOverlayInstructionAsync({
+          programAddress: PROGRAM_ADDRESS,
+          merchant: address(authorPubkey),
+          planId,
+          tokenMint: USDC_MINT_ADDRESS,
+          subscriber: signer,
+          expectedAmount: terms.amount,
+          expectedPeriodHours: terms.periodHours,
+          expectedCreatedAt: terms.createdAt,
+          expectedSubscriptionAuthorityInitId: authority.initId ?? 0n,
+        }),
+      );
+
+      return { instructions };
+    }),
+  [run],
+);
+```
+
+The init instruction only gets prepended once per wallet per mint; returning subscribers skip straight to `subscribe`. The `expected*` fields pin the terms the client just read, and the program re-checks them at execution time, so pricing can't shift between the read and the transaction landing.
+
+## Gating Paywalled Content at Render Time
+
+```typescript
+// src/pages/post/[id].tsx (getServerSideProps)
+if (author.subscriptionPrice > 0) {
+  const viewer = await getAuthedUserSSR(context);
+  if (viewer && viewer.pubkey !== post.author.id) {
+    const sub = await fetchViewerSubscription(post.author.id, viewer.pubkey);
+    props.allowed = sub.active;
+    props.post = post;
+  }
+}
+```
+
+```typescript
+// src/lib/subscriptions.ts
+export async function fetchViewerSubscription(authorPubkey, subscriberPubkey, planId) {
+  const planPda = await getPlanPda(authorPubkey, planId);
+  const subscriptionPda = await getSubscriptionPda(planPda, subscriberPubkey);
+  const account = await fetchMaybeSubscriptionDelegation(getKitRpc(), subscriptionPda);
+  if (!account.exists) return { active: false, expiresAtTs: 0, subscriptionPda: null };
+
+  const expiresAtTs = Number(account.data.expiresAtTs);
+  const active = expiresAtTs === 0 || Math.floor(Date.now() / 1000) < expiresAtTs;
+  return { active, expiresAtTs, subscriptionPda };
+}
+```
+
+This runs inside `getServerSideProps`, before the article body ever reaches the props sent to the client, so it can't be bypassed client-side. It costs an RPC round-trip per page load, but there's no session claim anywhere that could go stale or be forged.
+
+## Collecting Payment: Pulling Instead of Pushing
+
+`pullers` stays empty, so collection is a button in the author dashboard rather than a cron job or third-party puller. The subscriber set comes straight from the chain: each delegation stores its plan PDA as `delegatee`, so one filtered `getProgramAccounts` call (`fetchDelegationsByDelegatee`) returns the plan's delegations, each carrying the terms its subscriber originally accepted.
+
+```typescript
+// src/lib/subscriptions.ts
+export async function resolveCollectableSubscribers(authorPubkey, planId) {
+  const planPda = await getPlanPda(authorPubkey, planId);
+  const delegations = await fetchDelegationsByDelegatee(getKitRpc(), planPda);
+  const nowS = Math.floor(Date.now() / 1000);
+
+  const subscribers = [];
+  for (const d of delegations) {
+    if (d.kind !== 'subscription') continue;
+    const expiresAtTs = Number(d.data.expiresAtTs);
+    if (expiresAtTs !== 0 && nowS >= expiresAtTs) continue; // cancelled + expired
+    subscribers.push({
+      subscriberPubkey: d.data.header.delegator,
+      subscriptionPda: d.address,
+      amount: d.data.terms.amount, // the terms this subscriber accepted
+    });
+  }
+  return { planPda, subscribers };
+}
+```
+
+The `collect()` hook batches an idempotent ATA creation plus one `TransferSubscription` per subscriber into a single transaction, each transfer billing that subscriber's pinned amount:
+
+```typescript
+const collect = useCallback(
+  (params: { planId?: bigint } = {}) =>
+    run(async ({ pubkey, signer }) => {
+      const { planPda, subscribers } = await resolveCollectableSubscribers(
+        pubkey, params.planId ?? DEFAULT_PLAN_ID,
+      );
+      if (subscribers.length === 0) throw new Error('No collectable subscribers');
+
+      const receiverAta = await getAta(pubkey, USDC_MINT_ADDRESS);
+      const instructions: Instruction[] = [
+        // idempotent: no-op on-chain if the ATA already exists
+        getCreateAssociatedTokenIdempotentInstruction({
+          ata: receiverAta, mint: USDC_MINT_ADDRESS, owner: signer.address,
+          payer: signer, tokenProgram: TOKEN_PROGRAM,
+        }),
+      ];
+
+      for (const sub of subscribers) {
+        instructions.push(
+          await getTransferSubscriptionOverlayInstructionAsync({
+            programAddress: PROGRAM_ADDRESS,
+            caller: signer,
+            delegator: address(sub.subscriberPubkey),
+            tokenMint: USDC_MINT_ADDRESS,
+            subscriptionPda: address(sub.subscriptionPda),
+            planPda, amount: sub.amount, receiverAta,
+          }),
+        );
+      }
+      return { instructions };
+    }),
+  [run],
+);
+```
+
+## Bridging Kit Instruction Builders to Privy
+
+`@solana/subscriptions` expects a Kit-native `TransactionSigner`, but Privy's signing hooks only take and return raw transaction bytes. The fix is Kit's `createNoopSigner`, which satisfies the type without signing anything, so the instruction compiles down to bytes that get handed to Privy directly.
+
+```typescript
+// src/lib/subscriptions.ts
+export async function signAndSend(
+  instructions: Instruction | Instruction[],
+  signerAddress: Address,
+  signBytes: SignBytes,
+): Promise<string> {
+  const rpc = getKitRpc();
+  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+  const transactionMessage = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayer(signerAddress, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => appendTransactionMessageInstructions([instructions].flat(), tx),
+  );
+
+  const compiled = compileTransaction(transactionMessage);
+  const encodedTx = getTransactionEncoder().encode(compiled);
+  const signedBytes = await signBytes(encodedTx as Uint8Array);
+  const signed = getTransactionDecoder().decode(signedBytes);
+
+  const signature = await rpc
+    .sendTransaction(getBase64EncodedWireTransaction(signed), { encoding: 'base64' })
+    .send();
+  return String(signature);
+}
+```
+
+The wallet is always the sole signer and fee payer here, so a noop signer producing empty signatures is a safe fit throughout.
+
+```typescript
+// src/hooks/useAuth.ts
+const signBytes: SignBytes = useCallback(async (bytes) => {
+  if (!activeWallet) throw new Error('No connected Solana wallet');
+  const { signedTransaction } = await privySignTransaction({
+    transaction: bytes,
+    wallet: activeWallet,
+  });
+  return signedTransaction;
+}, [activeWallet, privySignTransaction]);
+```
+
+## Reader Lifecycle: Cancel, Resume, and Clean Up
+
+Cancelling doesn't cut access immediately: `expires_at_ts` lands at the end of the current billing period, and within that window the subscriber can resume with no new payment.
+
+```typescript
+const ix = await getResumeSubscriptionOverlayInstructionAsync({
+  programAddress: PROGRAM_ADDRESS,
+  subscriber: signer,
+  planPda,
+  subscriptionPda,
+});
+```
+
+Past that grace period the delegation PDA is just inert rent. Revoke closes it and returns the rent to whoever paid it.
+
+```typescript
+const ix = getRevokeSubscriptionOverlayInstruction({
+  programAddress: PROGRAM_ADDRESS,
+  authority: signer,
+  planPda,
+  subscriptionPda,
+});
+```
+
+- **Active, cutoff set** - still in the grace period, UI shows Resume.
+- **Inactive, cutoff set** - grace period passed, UI shows Reclaim rent.
+
+## Author Lifecycle: Pause, Reactivate, and Delete
+
+There's no status field on a Plan account; lifecycle is derived from the end timestamp: zero is open-ended, a future value is sunsetting, a past value is ended.
+
+```typescript
+type PlanLifecycle = 'active' | 'sunsetting' | 'ended';
+
+function planLifecycle(endTs: bigint): PlanLifecycle {
+  if (endTs === 0n) return 'active';
+  return BigInt(Math.floor(Date.now() / 1000)) >= endTs ? 'ended' : 'sunsetting';
+}
+```
+
+Pausing is an UpdatePlan call setting the end timestamp to now, which blocks new subscribers without touching existing ones.
+
+```typescript
+const ix = getUpdatePlanOverlayInstruction({
+  programAddress: PROGRAM_ADDRESS,
+  owner: signer,
+  planPda,
+  status: PlanStatus.Sunset,
+  endTs: BigInt(Math.floor(Date.now() / 1000)),
+  metadataUri: '',
+  pullers: [],
+});
+```
+
+The same call with an active status and zero end timestamp reactivates it. Delete only succeeds once a plan is sunset *and* past its end timestamp:
+
+```typescript
+const ix = getDeletePlanOverlayInstruction({ programAddress: PROGRAM_ADDRESS, owner: signer, planPda });
+```
+
+Since price and period are immutable, repricing always means a new plan. And since nothing else observes a deletion, the app clears its cached plan price right after, once the client confirms the plan is actually gone on-chain.
+
+## What's Not Wired Up Yet
+
+- **`cancel_subscription_now`** - immediate cancellation, skipping the grace window.
+- **`revoke_abandoned_delegation` / `revoke_abandoned_subscription`** - reclaim rent from a PDA stranded by a closed Subscription Authority.
+- **Fixed and recurring delegations** - user-set spending caps instead of merchant-set plans, unused here for now.
+</content>

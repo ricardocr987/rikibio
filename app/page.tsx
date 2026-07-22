@@ -77,7 +77,7 @@ export default async function Home() {
         </div>
       </section>
       <ArticleSection articles={articles} />
-      <ContactSection firstDate={firstDate} meetings={meetings} />
+      {/* <ContactSection firstDate={firstDate} meetings={meetings} /> */}
     </main>
   );
 }
