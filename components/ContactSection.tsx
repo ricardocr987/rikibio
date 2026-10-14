@@ -3,23 +3,40 @@
 import { MeetingForm } from "./MeetingForm";
 import { MailForm } from "./MailForm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Meetings } from "@/app/page";
+import type { Availability } from "@/lib/availability";
 
 type ContactSectionProps = {
-  firstDate: string;
-  meetings: Meetings;
+  // null when availability couldn't be loaded; only email is offered then
+  availability: Availability | null;
 };
 
-export function ContactSection({ firstDate, meetings }: ContactSectionProps) {
+const triggerClass =
+  "flex-1 rounded-full px-4 py-2 font-mono text-xs uppercase tracking-[0.14em] text-paper-dim transition-colors data-[state=active]:bg-paper data-[state=active]:text-ink";
+
+export function ContactSection({ availability }: ContactSectionProps) {
   return (
-    <Tabs className="flex flex-col items-center justify-center w-full" defaultValue="meeting">
-      <TabsList className="bg-[#23232b] rounded-lg shadow p-1 flex space-x-2 mb-4">
-        <TabsTrigger value="meeting" className="data-[state=active]:bg-[#18181b] data-[state=active]:text-blue-400 text-gray-200 px-4 py-2 rounded-md transition-colors">Book Meeting</TabsTrigger>
-        <TabsTrigger value="email" className="data-[state=active]:bg-[#18181b] data-[state=active]:text-blue-400 text-gray-200 px-4 py-2 rounded-md transition-colors">Send Email</TabsTrigger>
+    <Tabs
+      className="flex w-full flex-col md:w-[400px]"
+      defaultValue={availability ? "meeting" : "email"}
+    >
+      <TabsList className="mb-3 flex h-auto w-full rounded-full border border-line bg-ink-raised/80 p-1">
+        {availability && (
+          <TabsTrigger value="meeting" className={triggerClass}>
+            Book a call
+          </TabsTrigger>
+        )}
+        <TabsTrigger value="email" className={triggerClass}>
+          Send email
+        </TabsTrigger>
       </TabsList>
-      <TabsContent value="meeting">
-        <MeetingForm firstDate={firstDate} meetings={meetings} />
-      </TabsContent>
+      {availability && (
+        <TabsContent value="meeting">
+          <MeetingForm
+            firstDate={availability.firstDate}
+            meetings={availability.meetings}
+          />
+        </TabsContent>
+      )}
       <TabsContent value="email">
         <MailForm />
       </TabsContent>

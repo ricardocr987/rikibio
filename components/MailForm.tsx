@@ -55,11 +55,11 @@ export function MailForm() {
 
   return (
     <section className="flex flex-col items-center justify-center h-full w-full">
-      <div className="w-[360px] min-h-[420px] bg-[#23232b] rounded-lg shadow pt-6 pb-4 px-6">
+      <div className="w-full md:w-[400px] min-h-[420px] bg-ink-raised/80 backdrop-blur border border-line rounded-2xl pt-6 pb-4 px-6">
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(handleSubmit)}
-            className="space-y-5 flex flex-col text-gray-200 w-full"
+            className="space-y-5 flex flex-col text-paper w-full"
           >
             <FormField
               control={form.control}
@@ -71,7 +71,7 @@ export function MailForm() {
                     <Input
                       placeholder="Your email"
                       {...field}
-                      className="w-full bg-[#18181b] text-[#22c55e] placeholder-[#4ade80] border-none focus:ring-2 focus:ring-[#22c55e] focus:outline-none"
+                      className="w-full bg-ink-sunk text-paper placeholder:text-paper-dim/60 border-line focus-visible:ring-1 focus-visible:ring-signal focus-visible:ring-offset-0"
                     />
                   </FormControl>
                   <FormMessage />
@@ -88,7 +88,7 @@ export function MailForm() {
                     <Textarea
                       placeholder="Your message"
                       {...field}
-                      className="w-full h-40 bg-[#18181b] text-[#22c55e] placeholder-[#4ade80] border-none focus:ring-2 focus:ring-[#22c55e] focus:outline-none"
+                      className="w-full h-40 bg-ink-sunk text-paper placeholder:text-paper-dim/60 border-line focus-visible:ring-1 focus-visible:ring-signal focus-visible:ring-offset-0"
                     />
                   </FormControl>
                   <FormMessage />
@@ -97,7 +97,7 @@ export function MailForm() {
             />
             <Button
               type="submit"
-              className="flex-1 bg-[#22c55e] text-black rounded-md hover:bg-[#16a34a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#22c55e]"
+              className="flex-1 bg-signal text-ink font-medium rounded-full hover:bg-signal/90 focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
             >
               Send Message
             </Button>

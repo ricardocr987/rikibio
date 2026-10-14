@@ -1,43 +1,52 @@
-"use client";
-
-import { Article } from "@/lib/mdx";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { ArrowUpRight } from "lucide-react";
+import type { ArticleSummary } from "@/lib/mdx";
+import { SectionHeading } from "./SectionHeading";
 
 type ArticleProps = {
-  articles: Article[];
+  articles: ArticleSummary[];
 };
 
 export function ArticleSection({ articles }: ArticleProps) {
-  const router = useRouter();
-
-  const handleRedirect = (slug: string) => {
-    router.push(`/articles/${slug}`);
-  };
-
   return (
-    <section className="mb-12 mt-8 flex flex-col items-center">
-      <h1 className="text-xl font-bold mb-4 text-blue-400 text-center bg-[#18181b] px-4 py-2 rounded-md">
-        Blocks of code
-      </h1>
-      <div className="flex justify-center w-full">
-        <ul className="flex flex-col items-center space-y-3 max-w-md">
-          {articles.map((article) => (
-            <li key={article.slug} className="w-full">
-              <Link
-                href={`/articles/${article.slug}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleRedirect(article.slug);
-                }}
-                className="block text-center px-4 py-3 rounded-lg bg-[#23232b] text-blue-400 shadow hover:bg-[#2d2d36] hover:text-blue-300 text-base font-medium transition-colors border border-transparent"
-              >
+    <section id="writing" className="scroll-mt-8 py-20 md:py-28">
+      <SectionHeading index="02" title="Blocks of code" />
+      <ul className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line md:grid-cols-2 md:[&>li:last-child:nth-child(odd)]:col-span-2">
+        {articles.map((article) => (
+          <li key={article.slug} className="bg-ink-raised">
+            <Link
+              href={`/articles/${article.slug}`}
+              className="group flex h-full flex-col p-6 transition-colors hover:bg-ink md:p-8"
+            >
+              <div className="flex items-center justify-between font-mono text-xs uppercase tracking-[0.14em] text-paper-dim">
+                <time dateTime={article.date}>
+                  {new Date(article.date).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                  })}
+                </time>
+                <ArrowUpRight className="h-4 w-4 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-signal" />
+              </div>
+              <h3 className="mt-5 font-display text-2xl leading-snug text-paper group-hover:text-signal">
                 {article.title}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
+              </h3>
+              <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-paper-dim">
+                {article.description}
+              </p>
+              <div className="mt-auto flex flex-wrap gap-2 pt-6">
+                {article.tags.slice(0, 3).map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full border border-line px-2.5 py-0.5 font-mono text-[11px] text-paper-dim"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

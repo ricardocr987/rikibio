@@ -20,23 +20,10 @@ import { Textarea } from "./ui/textarea";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { useTokenContext } from "@/contexts/TokenProvider";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { VersionedTransaction } from "@solana/web3.js";
-import { TokenPicker } from "./TokenPicker";
-import { WalletPicker } from "./WalletPicker";
 import { toast } from "./ui/use-toast";
-import { Dialog, DialogContent, DialogTrigger } from "./ui/dialog";
-import {
-  EmbeddedCheckout,
-  EmbeddedCheckoutProvider,
-} from "@stripe/react-stripe-js";
-import { useCallback, useState } from "react";
-import config from "@/lib/config";
-import { confirmSession, createSession } from "@/actions/stripe";
-import { sendTransaction, createTransaction } from "@/actions/solana";
-import { ScrollArea } from "./ui/scroll-area";
-import { Meetings } from "@/app/page";
+import { useState } from "react";
+import { createBooking } from "@/actions/booking";
+import type { Meetings } from "@/lib/availability";
 import React from "react";
 
 export const MeetingSchema = z.object({
@@ -51,6 +38,11 @@ type DatePickerProps = {
   meetings: Meetings;
 };
 
+// Payment (Stripe checkout + Solana wallet) is on hold for now — booking is
+// free, straight through actions/booking/createBooking.ts. Both payment
+// paths are left intact in actions/stripe, actions/solana, contexts/, and
+// components/{WalletPicker,TokenPicker}.tsx for whenever payment comes back;
+// this form just doesn't wire them in.
 export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
   const form = useForm<z.infer<typeof MeetingSchema>>({
     resolver: zodResolver(MeetingSchema),
@@ -64,7 +56,7 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
 
   const selectedDate = form.watch("dob");
   const firstAvailableDate = new Date(firstDate);
-  
+
   // If the selected date is before the first available date, update it
   React.useEffect(() => {
     if (selectedDate < firstAvailableDate) {
@@ -86,78 +78,32 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
     });
   }
 
-  const [isStripeOpen, openStripe] = useState(false);
-  const [stripeSession, setStripeSession] = useState("");
-  const fetchClientSecret = useCallback(async () => {
-    const session = await createSession(JSON.stringify(form.getValues()));
-    setStripeSession(session.id);
-    return session.client_secret;
-  }, [form]);
-  const onComplete = useCallback(async () => {
-    await confirmSession(stripeSession);
-  }, [stripeSession]);
-  const options = {
-    fetchClientSecret,
-    onComplete,
-  };
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { publicKey, signTransaction } = useWallet();
-  const { tokens, loadingTokens, selectedToken, setSelectedToken } =
-    useTokenContext();
-
-  async function handleSolanaPayment(data: z.infer<typeof MeetingSchema>) {
+  async function onSubmit(data: z.infer<typeof MeetingSchema>) {
+    setIsSubmitting(true);
     try {
-      if (!publicKey || !signTransaction || !selectedToken) {
-        toast({ title: "Wallet not connected" });
-        return;
+      const result = await createBooking(
+        JSON.stringify({ ...data, dob: data.dob.toISOString() }),
+      );
+      if (result.ok) {
+        toast({ title: "Meeting booked!", description: "Check your email for the details." });
+        form.reset();
+      } else {
+        toast({ title: result.error || "Booking failed." });
       }
-
-      const quantity = data.hours.length.toString();
-      const { mint, decimals } = selectedToken!;
-      const transaction = await createTransaction(
-        publicKey!.toBase58(),
-        quantity,
-        mint,
-        decimals,
-      );
-      if (!transaction) return;
-
-      const deserializedTransaction = VersionedTransaction.deserialize(
-        Buffer.from(transaction, "base64") as Uint8Array,
-      );
-      const signedTransaction = await signTransaction!(deserializedTransaction);
-      const serializedTransaction = Buffer.from(
-        signedTransaction.serialize(),
-      ).toString("base64");
-      const formData = JSON.stringify({
-        ...data,
-        dob: data.dob.toISOString(),
-      });
-      const signature = await sendTransaction(serializedTransaction, formData);
-
-      toast({
-        title: "Payment done. Meeting booked.",
-        description: (
-          <a
-            href={`https://solana.fm/tx/${signature}`}
-            className="text-blue-500"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Check Transaction
-          </a>
-        ),
-      });
     } catch (error: any) {
-      toast({ title: error.message || "Payment processing failed." });
+      toast({ title: error.message || "Booking failed." });
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   return (
     <section className="flex flex-col items-center justify-center h-full w-full">
-      <div className="w-[360px] min-h-[420px] bg-[#23232b] rounded-lg shadow p-6">
+      <div className="w-full md:w-[400px] min-h-[420px] bg-ink-raised/80 backdrop-blur border border-line rounded-2xl p-6">
         <Form {...form}>
-          <form className="space-y-4 flex flex-col text-gray-200 w-full">
+          <form className="space-y-4 flex flex-col text-paper w-full">
             <FormField
               control={form.control}
               name="senderEmail"
@@ -168,7 +114,7 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
                     <Input
                       placeholder="Your email"
                       {...field}
-                      className="w-full bg-[#18181b] text-[#22c55e] placeholder-[#4ade80] border-none focus:ring-2 focus:ring-[#22c55e] focus:outline-none"
+                      className="w-full bg-ink-sunk text-paper placeholder:text-paper-dim/60 border-line focus-visible:ring-1 focus-visible:ring-signal focus-visible:ring-offset-0"
                     />
                   </FormControl>
                   <FormMessage />
@@ -187,7 +133,7 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
                         <Button
                           variant={"outline"}
                           className={cn(
-                            "w-full pl-3 text-left font-normal bg-[#18181b] text-[#22c55e] border-none focus:ring-2 focus:ring-[#22c55e] focus:outline-none",
+                            "w-full pl-3 text-left font-normal bg-ink-sunk text-paper border-line hover:bg-ink-sunk hover:text-paper focus-visible:ring-1 focus-visible:ring-signal focus-visible:ring-offset-0",
                             !field.value && "text-muted-foreground"
                           )}
                         >
@@ -200,7 +146,7 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-[#23232b]" align="start">
+                    <PopoverContent className="w-auto p-0 bg-ink-raised border-line text-paper" align="start">
                       <Calendar
                         mode="single"
                         selected={field.value}
@@ -241,7 +187,7 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
                             key={hour}
                             value={hour}
                             data-state={field.value.includes(hour) ? "on" : "off"}
-                            className="flex-1 min-w-0 px-4 py-2 rounded-md shadow transition-colors duration-200 border-none data-[state=on]:bg-[#22c55e] data-[state=on]:text-black data-[state=off]:bg-[#18181b] data-[state=off]:text-[#22c55e] data-[state=off]:hover:bg-[#404040] data-[state=off]:hover:text-[#22c55e] focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
+                            className="flex-1 min-w-0 px-4 py-2 rounded-md font-mono text-sm transition-colors duration-200 border border-line data-[state=on]:border-signal data-[state=on]:bg-signal data-[state=on]:text-ink data-[state=off]:bg-ink-sunk data-[state=off]:text-paper data-[state=off]:hover:border-paper-dim data-[state=off]:hover:bg-ink-sunk data-[state=off]:hover:text-paper focus-visible:ring-1 focus-visible:ring-signal"
                           >
                             {hour}
                           </ToggleGroupItem>
@@ -265,50 +211,21 @@ export function MeetingForm({ firstDate, meetings }: DatePickerProps) {
                     <Textarea
                       placeholder="Your message"
                       {...field}
-                      className="w-full bg-[#18181b] text-[#22c55e] placeholder-[#4ade80] border-none focus:ring-2 focus:ring-[#22c55e] focus:outline-none"
+                      className="w-full bg-ink-sunk text-paper placeholder:text-paper-dim/60 border-line focus-visible:ring-1 focus-visible:ring-signal focus-visible:ring-offset-0"
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <div className="w-full flex justify-center space-x-2">
-              {publicKey ? (
-                <TokenPicker
-                  tokens={tokens}
-                  selectedToken={selectedToken}
-                  setSelectedToken={setSelectedToken}
-                  handlePayment={form.handleSubmit(handleSolanaPayment)}
-                  quantity={form.watch("hours").length}
-                  loading={loadingTokens}
-                />
-              ) : (
-                <>
-                  <WalletPicker />
-                  <Dialog open={isStripeOpen} onOpenChange={openStripe}>
-                    <DialogTrigger asChild>
-                      <Button
-                        type="button"
-                        onClick={form.handleSubmit(() => openStripe(true))}
-                        className="flex-1 bg-[#22c55e] text-black rounded-md hover:bg-[#16a34a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#22c55e]"
-                      >
-                        Pay with Stripe
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)] p-0 overflow-hidden">
-                      <ScrollArea className="h-full max-h-[calc(100vh-4rem)] scroll-smooth">
-                        <EmbeddedCheckoutProvider
-                          stripe={config.stripePromise}
-                          options={options}
-                        >
-                          <EmbeddedCheckout className="h-[600px]" />
-                        </EmbeddedCheckoutProvider>
-                      </ScrollArea>
-                    </DialogContent>
-                  </Dialog>
-                </>
-              )}
-            </div>
+            <Button
+              type="button"
+              onClick={form.handleSubmit(onSubmit)}
+              disabled={isSubmitting}
+              className="w-full bg-signal text-ink font-medium rounded-full hover:bg-signal/90 focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
+            >
+              {isSubmitting ? "Booking..." : "Book Meeting"}
+            </Button>
           </form>
         </Form>
       </div>

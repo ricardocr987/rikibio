@@ -53,9 +53,18 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        notionGray: {
-          DEFAULT: "rgba(48, 52, 55, 1)",
+        ink: {
+          DEFAULT: "rgb(var(--ink) / <alpha-value>)",
+          raised: "rgb(var(--ink-raised) / <alpha-value>)",
+          sunk: "rgb(var(--ink-sunk) / <alpha-value>)",
         },
+        paper: {
+          DEFAULT: "rgb(var(--paper) / <alpha-value>)",
+          dim: "rgb(var(--paper-dim) / <alpha-value>)",
+        },
+        line: "rgb(var(--line) / <alpha-value>)",
+        signal: "rgb(var(--signal) / <alpha-value>)",
+        mint: "rgb(var(--mint) / <alpha-value>)",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -78,6 +87,8 @@ const config = {
       },
       fontFamily: {
         sans: ["var(--font-sans)", ...fontFamily.sans],
+        mono: ["var(--font-mono)", ...fontFamily.mono],
+        display: ["var(--font-display)", ...fontFamily.serif],
       },
     },
   },

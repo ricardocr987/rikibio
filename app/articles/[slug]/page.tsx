@@ -1,9 +1,12 @@
 import * as React from "react";
-import { getArticle, getAllSlugs } from "@/lib/mdx";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { notFound } from 'next/navigation';
+import { notFound } from "next/navigation";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { getArticle, getAllSlugs, getArticleSummaries } from "@/lib/mdx";
 import { ArticleHtmlClient } from "@/components/ArticleHtmlClient";
+import { ReaderChrome } from "@/components/reader/ReaderChrome";
+import { readerThemeScript } from "@/lib/readerTheme";
 
 interface PageProps {
   params: {
@@ -18,69 +21,128 @@ export async function generateStaticParams() {
   }));
 }
 
-export default async function Page({ params }: PageProps) {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const article = await getArticle(params.slug);
+  if (!article) return {};
+  return {
+    title: `${article.title} · riki.bio`,
+    description: article.description,
+    openGraph: {
+      title: article.title,
+      description: article.description,
+      type: "article",
+      publishedTime: new Date(article.date).toISOString(),
+      url: `https://www.riki.bio/articles/${article.slug}`,
+    },
+  };
+}
+
+const stagger = (i: number) => ({ "--i": i }) as React.CSSProperties;
+
+export default async function Page({ params }: PageProps) {
+  const [article, summaries] = await Promise.all([
+    getArticle(params.slug),
+    getArticleSummaries(),
+  ]);
 
   if (!article) {
     notFound();
   }
 
+  const index = summaries.findIndex((s) => s.slug === article.slug);
+  const newer = index > 0 ? summaries[index - 1] : null;
+  const older = index >= 0 ? summaries[index + 1] ?? null : null;
+
   return (
-    <div className="flex justify-center min-h-screen w-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-6 px-4 md:px-8">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-5xl w-full p-6 md:p-10 lg:p-12">
-        <article className="prose prose-lg dark:prose-invert max-w-none">
-          <header className="mb-8 border-b border-gray-200 dark:border-gray-700 pb-6">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 dark:text-white leading-tight">
-              {article.title}
-            </h1>
-            <div className="flex flex-col md:flex-row md:items-center gap-3 text-gray-600 dark:text-gray-400 mb-4">
-              <time 
-                dateTime={article.date}
-                className="flex items-center text-sm font-medium"
-              >
-                {new Date(article.date).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </time>
-              {article.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {article.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-xs font-medium"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            {article.description && (
-              <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed">
-                {article.description}
-              </p>
-            )}
-          </header>
-          
-          <div className="article-content">
-            <ArticleHtmlClient html={article.htmlContent || ''} />
+    <div className="reader">
+      <script dangerouslySetInnerHTML={{ __html: readerThemeScript }} />
+      <ReaderChrome />
+
+      <header className="mx-auto w-full max-w-[46rem] px-6 pb-12 pt-14 md:pb-16 md:pt-20">
+        <div>
+          <div
+            className="stagger mb-6 flex flex-wrap gap-2"
+            style={stagger(0)}
+          >
+            {article.tags.slice(0, 4).map((tag) => (
+              <span key={tag} className="reader-tag">
+                {tag}
+              </span>
+            ))}
           </div>
-        </article>
-        
-        <div className="flex justify-center mt-10 pt-6 border-t border-gray-200 dark:border-gray-700">
-          <Link href="/">
-            <Button 
-              variant="outline" 
-              size="lg"
-              className="px-6 py-2 text-base font-medium hover:bg-gray-100 dark:hover:bg-gray-800"
+          <h1
+            className="stagger font-display text-4xl leading-[1.08] tracking-tight text-[rgb(var(--r-fg))] md:text-[3.25rem]"
+            style={stagger(1)}
+          >
+            {article.title}
+          </h1>
+          {article.description && (
+            <p
+              className="stagger mt-6 text-lg leading-relaxed text-[rgb(var(--r-dim))]"
+              style={stagger(2)}
             >
-              ← Back to Home
-            </Button>
-          </Link>
+              {article.description}
+            </p>
+          )}
+          <p
+            className="stagger mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs uppercase tracking-[0.14em] text-[rgb(var(--r-dim))]"
+            style={stagger(3)}
+          >
+            <span>Ricardo Castelló</span>
+            <span aria-hidden>·</span>
+            <time dateTime={new Date(article.date).toISOString()}>
+              {new Date(article.date).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </time>
+            <span aria-hidden>·</span>
+            <span>{article.readingMinutes} min read</span>
+          </p>
         </div>
+      </header>
+
+      <div className="mx-auto w-full max-w-[46rem] border-t border-[rgb(var(--r-line))] px-6 pt-12">
+        <article className="stagger" style={stagger(4)}>
+          <ArticleHtmlClient html={article.htmlContent} />
+        </article>
       </div>
+
+      <footer className="mx-auto mt-20 w-full max-w-[46rem] px-6 pb-16">
+        <div className="grid gap-px overflow-hidden rounded-2xl border border-[rgb(var(--r-line))] bg-[rgb(var(--r-line))] md:grid-cols-2">
+          {older ? (
+            <Link href={`/articles/${older.slug}`} className="reader-pager">
+              <span className="flex items-center gap-2">
+                <ArrowLeft className="h-3.5 w-3.5" /> Older
+              </span>
+              <strong>{older.title}</strong>
+            </Link>
+          ) : (
+            <div className="reader-pager" aria-hidden />
+          )}
+          {newer ? (
+            <Link
+              href={`/articles/${newer.slug}`}
+              className="reader-pager md:items-end md:text-right"
+            >
+              <span className="flex items-center gap-2">
+                Newer <ArrowRight className="h-3.5 w-3.5" />
+              </span>
+              <strong>{newer.title}</strong>
+            </Link>
+          ) : (
+            <Link href="/#writing" className="reader-pager md:items-end md:text-right">
+              <span className="flex items-center gap-2">
+                All articles <ArrowRight className="h-3.5 w-3.5" />
+              </span>
+              <strong>Back to riki.bio</strong>
+            </Link>
+          )}
+        </div>
+      </footer>
     </div>
   );
 }

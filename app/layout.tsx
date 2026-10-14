@@ -1,25 +1,50 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Inter as FontSans } from "next/font/google";
+import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
 import { cn } from "@/lib/utils";
-import { SolanaContextProvider } from "@/contexts/SolanaProvider";
 import { Toaster } from "@/components/ui/toaster";
-import { TokenProvider } from "@/contexts/TokenProvider";
-import dynamic from "next/dynamic";
 
-const AnimatedBackground = dynamic(
-  () => import("@/components/AnimatedBackground"),
-  { ssr: false },
-);
+// Crypto payment (Solana wallet) is disabled site-wide for now — MeetingForm
+// no longer renders WalletPicker/TokenPicker, so SolanaContextProvider/
+// TokenProvider have no consumer left. Dropped from the root layout rather
+// than left wrapping every page (including the blog) with an unused wallet
+// adapter + Jupiter token-list fetch. The provider files themselves are
+// untouched — re-add here if crypto payment comes back.
 
 export const metadata: Metadata = {
-  title: "riki.bio",
-  description: "Riki's personal web",
+  metadataBase: new URL("https://www.riki.bio"),
+  title: "Ricardo Castelló · Full-stack engineer",
+  description:
+    "Senior full-stack engineer shipping trading and payments infrastructure on Solana since 2021, for Jupiter, frnx.ai and Fishnet.",
+  openGraph: {
+    title: "Ricardo Castelló · Full-stack engineer",
+    description:
+      "Trading and payments infrastructure on Solana, from programs to production frontends.",
+    url: "https://www.riki.bio",
+    siteName: "riki.bio",
+    type: "website",
+  },
 };
 
-const fontSans = FontSans({
+const fontSans = IBM_Plex_Sans({
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
   variable: "--font-sans",
+  display: "swap",
+});
+
+const fontMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-mono",
+  display: "swap",
+});
+
+const fontDisplay = Newsreader({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  variable: "--font-display",
+  display: "swap",
 });
 
 export default function RootLayout({
@@ -30,12 +55,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={cn("bg-notionGray font-sans antialiased", fontSans.variable)}
+        className={cn(
+          "bg-ink font-sans text-paper antialiased",
+          fontSans.variable,
+          fontMono.variable,
+          fontDisplay.variable,
+        )}
       >
-        <AnimatedBackground />
-        <SolanaContextProvider>
-          <TokenProvider>{children}</TokenProvider>
-        </SolanaContextProvider>
+        {children}
         <Toaster />
       </body>
     </html>
