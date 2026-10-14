@@ -2,14 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
 import { cn } from "@/lib/utils";
-import { Toaster } from "@/components/ui/toaster";
-
-// Crypto payment (Solana wallet) is disabled site-wide for now — MeetingForm
-// no longer renders WalletPicker/TokenPicker, so SolanaContextProvider/
-// TokenProvider have no consumer left. Dropped from the root layout rather
-// than left wrapping every page (including the blog) with an unused wallet
-// adapter + Jupiter token-list fetch. The provider files themselves are
-// untouched — re-add here if crypto payment comes back.
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.riki.bio"),
@@ -44,6 +36,8 @@ const fontDisplay = Newsreader({
   subsets: ["latin"],
   style: ["normal", "italic"],
   variable: "--font-display",
+  // Next 14 ships no fallback metrics for Newsreader
+  adjustFontFallback: false,
   display: "swap",
 });
 
@@ -63,7 +57,6 @@ export default function RootLayout({
         )}
       >
         {children}
-        <Toaster />
       </body>
     </html>
   );

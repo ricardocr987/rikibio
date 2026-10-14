@@ -13,69 +13,10 @@
     --line: 42 54 47;
     --signal: 255 99 51;
     --mint: 120 230 170;
-
-    /* shadcn tokens mapped onto the palette above */
-    --background: 150 21% 5.5%;
-    --foreground: 44 37% 88%;
-    --card: 150 17% 9%;
-    --card-foreground: 44 37% 88%;
-    --popover: 150 17% 9%;
-    --popover-foreground: 44 37% 88%;
-    --primary: 14 100% 60%;
-    --primary-foreground: 150 21% 5.5%;
-    --secondary: 145 12.5% 19%;
-    --secondary-foreground: 44 37% 88%;
-    --muted: 145 12.5% 19%;
-    --muted-foreground: 100 5% 60%;
-    --accent: 145 12.5% 19%;
-    --accent-foreground: 44 37% 88%;
-    --destructive: 0 72% 58%;
-    --destructive-foreground: 44 37% 88%;
-    --border: 145 12.5% 19%;
-    --input: 145 12.5% 19%;
-    --ring: 14 100% 60%;
-    --radius: 0.5rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-  }
-}
-
-@layer base {
   * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
+    border-color: rgb(var(--line));
   }
 }
 
